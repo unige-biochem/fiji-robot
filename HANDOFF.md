@@ -47,58 +47,75 @@ unsafe by design; it's a video-making tool). bigdataviewer-playground needs
    integration.
 6. **Package** `ch.epfl.biop.scijava.ui.robot` (BIOP-owned, not squatting
    `org.scijava`). Change now if ever, it's cheap.
+7. **Mode switch is per-launch, no global flag.** The launcher choice *is* the
+   mode: `programmaticLauncher()` runs headless, `searchLauncher(query)` runs
+   visibly and drives the dialog. There is no `FORCE_PROGRAMMATIC` global (the
+   original toolkit had one); to iterate headlessly you swap the launcher at the
+   call site. `CmdExecutor.launch()` stays a one-liner delegating to the launcher,
+   which encapsulates its own mode.
+8. **IJ1 lives in this repo but quarantined.** The `…robot.ij1` package is the
+   *only* code allowed to import `ij.*` / `net.imagej.*`; core never does
+   (enforced by convention + a grep check). A future module split is then just
+   "move the `ij1` package + the `imagej-legacy` dependency." Multi-module was
+   considered and deferred — single module for now.
 
 ## Current state (committed)
 
-Two commits on the default branch. Core depends on `scijava-common` +
-`scijava-ui-swing` only.
+Core depends on `scijava-common` + `scijava-ui-swing`; the `ij1` package adds
+`imagej-legacy` (compile) and the `imagej` gateway (test scope).
 
 Done:
 - `robot/` — `CmdExecutor` (type-state builder), `InputResolution` /
   `PreSetResolution` / `DialogResolution`, `Resolutions` (`programmatic`,
   `fromDialog`), `Launcher` / `Launchers` (`programmaticLauncher`),
-  `LaunchRequest`.
+  `LaunchRequest`, plus the `Gesture` / `GestureContext` capability (a resolution
+  *optionally* implements `Gesture` for a visible action).
 - `robot/groovy/GroovyRender` — headless `cs.run(...)` snippet projection.
-- `robot/core/` — `Ui` (Robot wrapper, ported, trimmed of recording-crop
-  helpers), `Timings` (ported). `Timeline` / `EventRecorder` / `Step` are
-  **no-op placeholders** so the gesture primitives call them exactly as in the
-  original.
+- `robot/core/` — `Ui`, `Timings`, `Inspector` (ported; used to locate the IJ1
+  search bar). `Timeline` / `EventRecorder` / `Step` are **no-op placeholders**.
 - `robot/widgets/Harvester` — decoupled from `Fiji` (takes a `Context`); drives
-  checkbox / number / text / combo / radio / `File` / `File[]`. BDV-coupled
-  branches removed.
+  checkbox / number / text / combo / radio / `File` / `File[]`.
+- **`robot/ij1/` (the IJ1 binding, quarantined — decision #8):** `Fiji`
+  (`searchAndRun`, ported), `Ij1Launchers.searchLauncher(query)` (visible:
+  pre-set gestures → search-bar trigger → `Harvester` drives the dialog),
+  `Ij1Resolutions.selectActiveImage(title)` (a `PreSetResolution` + `Gesture` —
+  `value()` resolves the `ImagePlus` by title for the headless run; the gesture
+  activates its window for the visible run).
+- `LaunchRequest` now exposes the pre-set vs dialog split
+  (`runPreSetGestures()`, `dialogArgs()`, `dialogNarrations()`) so a visible
+  launcher drives only the dialog inputs.
 - Tests: `CmdExecutorTest` (headless, 4 tests, green here), `HarvesterWidgetsTest`
-  (GUI, 7 widgets, run locally — confirmed working by the user).
+  (GUI, 7 widgets, run locally — confirmed by the user), and the ij1 tests
+  (`ActiveImagePresetTest`, `SearchLauncherTest`, GUI/local; compile here, **not
+  yet run** — they boot a real Fiji and drive the screen, so run them locally).
 
 ## TODO (roughly in priority order)
 
-### 1. Wire visible execution into `CmdExecutor`  ← the core gap
-Right now the builder only has `programmaticLauncher`; the visible path doesn't
-exist yet. Needed:
-- A **gesture capability** on resolutions (a small interface a resolution
-  *optionally* implements, e.g. `Gesture { void perform(GestureContext); }`),
-  so `DialogResolution` can drive its widget and `PreSetResolution` can do a
-  pre-launch gesture. Keep `value()`/`narration()` as-is.
-- A **mode switch** (visible vs programmatic). The original used a global
-  `CommandExecutor.FORCE_PROGRAMMATIC` + `Ui.FAST_MODE`. Decide: global flag, or
-  per-launch. In visible mode, `launch()` should: run preSet gestures → trigger
-  via launcher → drive only the `postSet` (dialog) inputs through
-  `Harvester.runOpenDialog(cmd, narrations, dialogArgs)`.
-- A visible launcher: start with `searchLauncher(query)` or a simple
-  `dialogLauncher()` that just does `cs.run(cmd, true)` (no pre-set dialog args)
-  and lets `postSet` drive the dialog. (`Fiji.searchAndRun` is IJ1 — a
-  `searchLauncher` belongs in an IJ1 binding; a plain `dialogLauncher` can live
-  in core.)
-- Acceptance: a GUI test that builds a plan with `preSet(programmatic(..))` +
-  `postSet(fromDialog(..))` + visible launcher and asserts the command ran with
-  the dialog driven.
+### 1. Wire visible execution into `CmdExecutor`  ← LARGELY DONE
+The visible path now exists via `searchLauncher` (in `ij1`). Landed:
+- The **gesture capability** (`Gesture` / `GestureContext`) — a resolution opts
+  in; `value()`/`narration()` unchanged.
+- The **mode switch**: per-launch, no global flag (settled decision #7). The
+  launcher *is* the mode; `searchLauncher.launch()` runs preSet gestures → search
+  trigger → `Harvester.runOpenDialog(cmd, dialogNarrations, dialogArgs)`.
+- A visible launcher: `searchLauncher(query)` (IJ1). The `dialogResolutions`
+  side of the gesture capability (a `DialogResolution` that drives its *own*
+  widget rather than going through the value-based `Harvester` path) is **not**
+  done — `searchLauncher` still drives dialog inputs by value via `Harvester`.
+- Acceptance test: `SearchLauncherTest` (GUI/local) — written, not yet run.
 
-### 2. Active-image spike (IJ1 binding)  ← validates the whole model
-Create module/repo `scijava-ui-robot-ij1` (deps: core + imagej-legacy). Add
-`selectActiveImage(name)` as a `PreSetResolution` whose gesture activates the
-named image window. Verify that pre-launch selection survives into the real
-`LegacyImagePreprocessor` (the assumption decision #2 rests on). If it holds,
-the two-phase model is sound; if not, that's where the design needs another
-joint. Do a minimal standalone spike first, then integrate with the builder.
+Still open: a core-only `dialogLauncher()` (`cs.run(cmd, true)` then let `postSet`
+drive the dialog, no IJ1) for visible tests that don't need the search bar.
+
+### 2. Active-image spike (IJ1 binding)  ← IMPLEMENTED, pending local run
+`Ij1Resolutions.selectActiveImage(title)` is a `PreSetResolution` + `Gesture`:
+the gesture activates the named window (visible click + `WindowManager
+.setCurrentWindow` as a correctness guarantee) so the real
+`LegacyImagePreprocessor` resolves the command's `ImagePlus` during the run.
+`SearchLauncherTest` is the spike that asserts this survives end to end — **run
+it locally to confirm the assumption decision #2 rests on.** If the
+`setCurrentWindow` guarantee turns out to be doing the real work and a pure
+visible click does not survive, revisit whether the gesture is enough on its own.
 
 ### 3. Port the remaining generic (non-BDV) widget/AWT helpers
 From `…/docs/videos/`:

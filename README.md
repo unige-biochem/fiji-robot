@@ -73,11 +73,38 @@ The recording hooks (`core.Timeline`, `core.EventRecorder`, `core.Step`) are
 present as no-op placeholders so the gesture primitives call them exactly as in
 the original toolkit — fleshed out when the recording layer is ported.
 
+## ImageJ1 binding (`…robot.ij1`)
+
+The IJ1 binding lives in this repo but is quarantined in the `…robot.ij1`
+package — the only code allowed to import `ij.*` / `net.imagej.*`. It adds two
+factories that mirror the core ones:
+
+```java
+import static ch.epfl.biop.scijava.ui.robot.ij1.Ij1Launchers.searchLauncher;
+import static ch.epfl.biop.scijava.ui.robot.ij1.Ij1Resolutions.selectActiveImage;
+
+CmdExecutor.of(context, MyImageCommand.class)
+    .preSet("imp", selectActiveImage("blobs.gif"))   // active-image preset
+    .withLauncher(searchLauncher("my command"))      // launch via the search bar
+    .postSet("radius", fromDialog(3.0, "We set the radius."))
+    .launch();
+```
+
+`searchLauncher(query)` is a *visible* launcher: it runs the pre-set gestures,
+types the query into Fiji's legacy search bar, then drives the dialog with the
+harvester. `selectActiveImage(title)` resolves the `ImagePlus` by title for the
+headless run, and activates that window for the visible run so ImageJ's
+`LegacyImagePreprocessor` picks it up. Choosing the launcher *is* choosing the
+mode — there is no global visible/programmatic switch.
+
+Keeping this package free-standing is what makes a future split into a separate
+module a matter of moving the package and the `imagej-legacy` dependency.
+
 ## Scope / dependencies
 
 Core depends on `scijava-common` and `scijava-ui-swing` (the harvester it
-drives). No BDV, no bigdataviewer-playground, no imagej-legacy — those belong to
-binding modules layered on top.
+drives). The `ij1` package adds `imagej-legacy`. No BDV, no
+bigdataviewer-playground — those belong to binding modules layered on top.
 
 ## Build
 
@@ -85,7 +112,10 @@ binding modules layered on top.
 mvn clean install      # compiles everything; runs the headless test
 mvn test -Dtest=CmdExecutorTest        # headless backbone only
 mvn test -Dtest=HarvesterWidgetsTest   # GUI widget tests — needs a local display
+mvn test -Dtest=SearchLauncherTest     # GUI ij1 test — boots Fiji, needs a display
+mvn test -Dtest=ActiveImagePresetTest  # GUI ij1 test — boots Fiji, needs a display
 ```
 
-`HarvesterWidgetsTest` synthesizes real mouse / keyboard events and needs a
-visible display, so it is meant to be run locally, not in headless CI.
+`HarvesterWidgetsTest` and the `ij1` tests synthesize real mouse / keyboard
+events (and the ij1 ones boot a full Fiji), so they are meant to be run locally,
+not in headless CI.

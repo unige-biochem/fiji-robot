@@ -111,9 +111,29 @@
 			<artifactId>scijava-ui-swing</artifactId>
 		</dependency>
 
+		<!-- ImageJ1 binding (package ch.epfl.biop.scijava.ui.robot.ij1 only).
+		     Pulls in ImageJ1 (ij.IJ, ij.WindowManager, ij.ImagePlus) and the
+		     LegacyImagePreprocessor the active-image preset relies on. This is
+		     the ONLY dependency the core packages must never touch — keeping the
+		     ij1 code free-standing here is what makes a future module split a
+		     matter of moving the package and this one dependency. -->
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>imagej-legacy</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- The ImageJ gateway (new ImageJ().ui().showUI()) used only to boot a
+		     real Fiji UI in the ij1 GUI tests. Heavyweight, hence test-scoped —
+		     the ij1 main code drives the already-running IJ, it does not boot it. -->
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>imagej</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

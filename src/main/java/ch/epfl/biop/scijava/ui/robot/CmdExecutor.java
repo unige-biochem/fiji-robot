@@ -143,22 +143,37 @@ public final class CmdExecutor {
 		 * a tree launcher's {@code "sources"}) folded in. Explicit builder inputs
 		 * win on a name clash. Building it once for both projections is what keeps
 		 * "what runs" and "what's rendered" from drifting apart.
+		 *
+		 * <p>The resolutions are kept in two shapes: a merged {@code name → value}
+		 * view (what the headless launcher runs and the renderer emits) and the
+		 * pre-set / dialog split (what a visible launcher drives phase by phase).
+		 * The split keys off the resolution's static type — {@link PreSetResolution}
+		 * vs {@link DialogResolution} — which the builder grammar already
+		 * guarantees: pre-sets arrive via {@code preSet(...)}, dialog inputs via
+		 * {@code postSet(...)}.</p>
 		 */
 		private LaunchRequest mergedRequest() {
 			Map<String, Object> inputs = new LinkedHashMap<>();
 			Map<String, String> narrations = new LinkedHashMap<>();
+			Map<String, PreSetResolution> preSets = new LinkedHashMap<>();
+			Map<String, DialogResolution> dialogs = new LinkedHashMap<>();
 			for (Map.Entry<String, InputResolution> e : resolutions.entrySet()) {
-				inputs.put(e.getKey(), e.getValue().value());
-				String narration = e.getValue().narration();
-				if (narration != null) narrations.put(e.getKey(), narration);
+				String name = e.getKey();
+				InputResolution r = e.getValue();
+				inputs.put(name, r.value());
+				String narration = r.narration();
+				if (narration != null) narrations.put(name, narration);
+				if (r instanceof PreSetResolution) preSets.put(name, (PreSetResolution) r);
+				else if (r instanceof DialogResolution) dialogs.put(name, (DialogResolution) r);
 			}
-			LaunchRequest base = new LaunchRequest(context, command, inputs, narrations);
+			LaunchRequest base =
+					new LaunchRequest(context, command, inputs, narrations, preSets, dialogs);
 			Map<String, Object> contributed = launcher.contributedInputs(base);
 			if (contributed.isEmpty()) return base;
 			for (Map.Entry<String, Object> e : contributed.entrySet()) {
 				inputs.putIfAbsent(e.getKey(), e.getValue());
 			}
-			return new LaunchRequest(context, command, inputs, narrations);
+			return new LaunchRequest(context, command, inputs, narrations, preSets, dialogs);
 		}
 	}
 
