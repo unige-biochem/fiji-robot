@@ -1,0 +1,175 @@
+package ch.epfl.biop.scijava.ui.robot;
+
+import ch.epfl.biop.scijava.ui.robot.groovy.GroovyRender;
+import org.scijava.Context;
+import org.scijava.command.Command;
+import org.scijava.module.Module;
+import org.scijava.plugin.Parameter;
+
+import java.lang.reflect.Field;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * A type-state builder that describes a single command run as an ordered recipe,
+ * then either executes it or renders its headless Groovy equivalent.
+ *
+ * <p>The builder grammar is enforced by the compiler, not by runtime checks:</p>
+ *
+ * <pre>
+ * CmdExecutor.of(context, MyCommand.class)   // -&gt; PreLaunch
+ *     .preSet("image", selectActiveImage(...))   // zero or more, before launch
+ *     .preSet("a", programmatic(2))
+ *     .withLauncher(programmaticLauncher())   // exactly one -&gt; PostLaunch
+ *     .postSet("min", fromDialog(0.0, "..."))     // zero or more, after launch
+ *     .launch();                                  // terminal
+ * </pre>
+ *
+ * <p>Because {@link PreLaunch#withLauncher} returns a different type
+ * ({@link PostLaunch}), you cannot call a launcher twice, cannot {@code postSet}
+ * before launching, and cannot forget to launch — the temporal order
+ * <em>pre-set → launch → dialog</em> is the only well-typed path. This is the
+ * "single point of execution" invariant made structural.</p>
+ *
+ * <p>The same plan feeds two projections: {@link PostLaunch#launch()} runs it,
+ * {@link PostLaunch#renderGroovy()} renders the headless reproduction. Further
+ * projections (timeline, visible Robot execution) are added without changing
+ * this surface — they are additional readers of the same ordered resolutions.</p>
+ */
+public final class CmdExecutor {
+
+	private CmdExecutor() {}
+
+	/** Begin describing a run of {@code command} in {@code context}. */
+	public static <C extends Command> PreLaunch<C> of(Context context, Class<C> command) {
+		if (context == null) throw new IllegalArgumentException("context must not be null");
+		if (command == null) throw new IllegalArgumentException("command must not be null");
+		return new BuilderImpl<>(context, command);
+	}
+
+	// ===== Builder states =====================================================
+
+	/** Pre-launch phase: collect pre-set inputs, then name the launcher. */
+	public interface PreLaunch<C extends Command> {
+		/** Add an input resolved before the command launches. */
+		PreLaunch<C> preSet(String name, PreSetResolution resolution);
+
+		/** Name the single launcher and transition to the post-launch phase. */
+		PostLaunch<C> withLauncher(Launcher launcher);
+	}
+
+	/** Post-launch phase: collect dialog inputs, then launch or render. */
+	public interface PostLaunch<C extends Command> {
+		/** Add an input harvested from the command's dialog. */
+		PostLaunch<C> postSet(String name, DialogResolution resolution);
+
+		/** Execute the plan. Returns the completed module, or {@code null} when
+		 *  the launcher cannot recover outputs. */
+		Module launch();
+
+		/** Render the headless Groovy reproduction of the plan. Does not run it. */
+		String renderGroovy();
+	}
+
+	// ===== Implementation =====================================================
+
+	private static final class BuilderImpl<C extends Command>
+			implements PreLaunch<C>, PostLaunch<C> {
+
+		private final Context context;
+		private final Class<C> command;
+		private final Set<String> paramNames;
+		private final Map<String, InputResolution> resolutions = new LinkedHashMap<>();
+		private Launcher launcher;
+
+		BuilderImpl(Context context, Class<C> command) {
+			this.context = context;
+			this.command = command;
+			this.paramNames = parameterNames(command);
+		}
+
+		@Override
+		public PreLaunch<C> preSet(String name, PreSetResolution resolution) {
+			record(name, resolution);
+			return this;
+		}
+
+		@Override
+		public PostLaunch<C> withLauncher(Launcher launcher) {
+			if (launcher == null) throw new IllegalArgumentException("launcher must not be null");
+			this.launcher = launcher;
+			return this;
+		}
+
+		@Override
+		public PostLaunch<C> postSet(String name, DialogResolution resolution) {
+			record(name, resolution);
+			return this;
+		}
+
+		@Override
+		public Module launch() {
+			return launcher.launch(mergedRequest());
+		}
+
+		@Override
+		public String renderGroovy() {
+			LaunchRequest request = mergedRequest();
+			return GroovyRender.renderRun(command, request.inputs(), request.narrations());
+		}
+
+		// --- internals --------------------------------------------------------
+
+		private void record(String name, InputResolution resolution) {
+			if (name == null) throw new IllegalArgumentException("input name must not be null");
+			if (resolution == null) {
+				throw new IllegalArgumentException("resolution for '" + name + "' must not be null");
+			}
+			if (!paramNames.contains(name)) {
+				throw new IllegalArgumentException("No @Parameter named '" + name + "' on "
+						+ command.getSimpleName() + ". Known parameters: " + paramNames);
+			}
+			if (resolutions.containsKey(name)) {
+				throw new IllegalArgumentException("Input '" + name + "' is already set");
+			}
+			resolutions.put(name, resolution);
+		}
+
+		/**
+		 * The request both {@link #launch()} and {@link #renderGroovy()} act on:
+		 * the builder's resolutions, with the launcher's own contributions (e.g.
+		 * a tree launcher's {@code "sources"}) folded in. Explicit builder inputs
+		 * win on a name clash. Building it once for both projections is what keeps
+		 * "what runs" and "what's rendered" from drifting apart.
+		 */
+		private LaunchRequest mergedRequest() {
+			Map<String, Object> inputs = new LinkedHashMap<>();
+			Map<String, String> narrations = new LinkedHashMap<>();
+			for (Map.Entry<String, InputResolution> e : resolutions.entrySet()) {
+				inputs.put(e.getKey(), e.getValue().value());
+				String narration = e.getValue().narration();
+				if (narration != null) narrations.put(e.getKey(), narration);
+			}
+			LaunchRequest base = new LaunchRequest(context, command, inputs, narrations);
+			Map<String, Object> contributed = launcher.contributedInputs(base);
+			if (contributed.isEmpty()) return base;
+			for (Map.Entry<String, Object> e : contributed.entrySet()) {
+				inputs.putIfAbsent(e.getKey(), e.getValue());
+			}
+			return new LaunchRequest(context, command, inputs, narrations);
+		}
+	}
+
+	/** Field names of every {@code @Parameter} on {@code command}, including inherited. */
+	private static Set<String> parameterNames(Class<?> command) {
+		Set<String> names = new HashSet<>();
+		for (Class<?> c = command; c != null && c != Object.class; c = c.getSuperclass()) {
+			for (Field f : c.getDeclaredFields()) {
+				if (f.isAnnotationPresent(Parameter.class)) names.add(f.getName());
+			}
+		}
+		return names;
+	}
+}

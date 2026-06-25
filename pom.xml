@@ -13,13 +13,15 @@
 	</parent>
 
 	<groupId>ch.epfl.biop</groupId>
-	<artifactId>dummy-command</artifactId>
+	<artifactId>scijava-ui-robot</artifactId>
 	<version>0.1.0-SNAPSHOT</version>
 
-	<name>Biop Dummy Command</name>
-	<description>A Maven project implementing an ImageJ command - template for BIOP - EPFL</description>
+	<name>SciJava UI Robot</name>
+	<description>A visible, recordable driver for SciJava commands — drives input
+		harvesting (and, later, java.awt.Robot gestures) so command runs can be
+		reproduced and recorded for tutorial videos. Developed by BIOP - EPFL.</description>
 	<url>https://biop.epfl.ch</url>
-	<inceptionYear>2024</inceptionYear>
+	<inceptionYear>2026</inceptionYear>
 	<organization>
 		<name>BIOP</name>
 		<url>https://biop.epfl.ch</url>
@@ -32,20 +34,6 @@
 	</licenses>
 
 	<developers>
-		<developer>
-			<id>lacan</id>
-			<name>Olivier Burri</name>
-			<url>https://www.epfl.ch/research/facilities/ptbiop/staff/</url>
-			<roles>
-				<role>founder</role>
-				<role>lead</role>
-				<role>developer</role>
-				<role>debugger</role>
-				<role>reviewer</role>
-				<role>support</role>
-				<role>maintainer</role>
-			</roles>
-		</developer>
 		<developer>
 			<id>nicokiaru</id>
 			<name>Nicolas Chiaruttini</name>
@@ -60,65 +48,13 @@
 				<role>maintainer</role>
 			</roles>
 		</developer>
-		<developer>
-			<id>romainGuiet</id>
-			<name>Romain Guiet</name>
-			<url>https://www.epfl.ch/research/facilities/ptbiop/staff/</url>
-			<roles>
-				<role>founder</role>
-				<role>lead</role>
-				<role>developer</role>
-				<role>debugger</role>
-				<role>reviewer</role>
-				<role>support</role>
-				<role>maintainer</role>
-			</roles>
-		</developer>
-		<developer>
-			<id>RDornier</id>
-			<name>Rémy Dornier</name>
-			<url>https://www.epfl.ch/research/facilities/ptbiop/staff/</url>
-			<roles>
-				<role>founder</role>
-				<role>lead</role>
-				<role>developer</role>
-				<role>debugger</role>
-				<role>reviewer</role>
-				<role>support</role>
-				<role>maintainer</role>
-			</roles>
-		</developer>
 	</developers>
 	<contributors>
-		<contributor>
-			<name>Romain Guiet</name>
-			<url>http://biop.epfl.ch/INFO_Facility.html</url>
-			<roles><role>founder</role></roles>
-			<properties><id>romainGuiet</id></properties>
-		</contributor>
 		<contributor>
 			<name>Nicolas Chiaruttini</name>
 			<url>http://biop.epfl.ch/INFO_Facility.html</url>
 			<roles><role>founder</role></roles>
 			<properties><id>NicoKiaru</id></properties>
-		</contributor>
-		<contributor>
-			<name>Olivier Burri</name>
-			<url>http://biop.epfl.ch/INFO_Facility.html</url>
-			<roles><role>founder</role></roles>
-			<properties><id>lacan</id></properties>
-		</contributor>
-		<contributor>
-			<name>Arne Seitz</name>
-			<url>http://biop.epfl.ch/INFO_Facility.html</url>
-			<roles><role>founder</role></roles>
-			<properties><id>ArneS70</id></properties>
-		</contributor>
-		<contributor>
-			<name>Rémy Dornier</name>
-			<url>http://biop.epfl.ch/INFO_Facility.html</url>
-			<roles><role>founder</role></roles>
-			<properties><id>RDornier</id></properties>
 		</contributor>
 	</contributors>
 
@@ -130,29 +66,25 @@
 	</mailingLists>
 
 	<scm>
-		<connection>scm:git:git:https://github.com/BIOP/ijp-template-ij2</connection>
-		<developerConnection>scm:git:git@github.com:BIOP/ijp-template-ij2</developerConnection>
+		<connection>scm:git:https://github.com/BIOP/scijava-ui-robot</connection>
+		<developerConnection>scm:git:git@github.com:BIOP/scijava-ui-robot</developerConnection>
 		<tag>HEAD</tag>
-		<url>https://github.com/BIOP/ijp-template-ij2</url>
+		<url>https://github.com/BIOP/scijava-ui-robot</url>
 	</scm>
-	
+
 	<issueManagement>
 		<system>GitHub Issues</system>
-		<url>https://github.com/BIOP/ijp-template-ij2/issues</url>
+		<url>https://github.com/BIOP/scijava-ui-robot/issues</url>
 	</issueManagement>
-
 
 	<ciManagement>
 		<system>None</system>
 	</ciManagement>
 
 	<properties>
-		<package-name>ch.epfl.biop.ij2command</package-name>
-		<main-class>ch.epfl.biop.ij2command.DummyCommand</main-class>
-		<license.licenseName>gpl_v3</license.licenseName>
+		<package-name>ch.epfl.biop.scijava.ui.robot</package-name>
+		<license.licenseName>bsd_2</license.licenseName>
 		<license.copyrightOwners>EPFL</license.copyrightOwners>
-		<!-- <scijava.app.directory>C:/Fiji_template</scijava.app.directory> -->
-		<!-- <scijava.app.subdirectory>plugins/BIOP</scijava.app.subdirectory> -->
 	</properties>
 
 	<repositories>
@@ -163,10 +95,14 @@
 	</repositories>
 
 	<dependencies>
+		<!-- Core: command model + parameter reflection. Deliberately minimal —
+		     no BDV, no bdv-playground, no imagej-legacy. The visible-gesture and
+		     binding layers (Robot, BDV, IJ1) are added in their own modules. -->
 		<dependency>
-			<groupId>net.imagej</groupId>
-			<artifactId>imagej</artifactId>
+			<groupId>org.scijava</groupId>
+			<artifactId>scijava-common</artifactId>
 		</dependency>
+
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
