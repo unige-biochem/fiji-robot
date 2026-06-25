@@ -2,6 +2,7 @@ package ch.epfl.biop.scijava.ui.robot.ij1;
 
 import ch.epfl.biop.scijava.ui.robot.Launcher;
 import ch.epfl.biop.scijava.ui.robot.LaunchRequest;
+import ch.epfl.biop.scijava.ui.robot.core.Ui;
 import ch.epfl.biop.scijava.ui.robot.widgets.Harvester;
 
 import org.scijava.module.Module;
@@ -56,6 +57,7 @@ public final class Ij1Launchers {
 
 		@Override
 		public Module launch(LaunchRequest request) {
+			if (Ui.FORCE_DOT_DECIMAL) Ui.useDotDecimalSeparator();
 			request.runPreSetGestures();
 			Fiji.searchAndRun(query);
 			Harvester.runOpenDialog(request.command(), request.dialogNarrations(),

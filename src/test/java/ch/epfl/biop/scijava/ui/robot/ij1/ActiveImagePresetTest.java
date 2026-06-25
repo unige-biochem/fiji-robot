@@ -3,6 +3,7 @@ package ch.epfl.biop.scijava.ui.robot.ij1;
 import ch.epfl.biop.scijava.ui.robot.CmdExecutor;
 
 import ij.ImagePlus;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.scijava.Context;
@@ -38,6 +39,11 @@ public class ActiveImagePresetTest {
 	@BeforeClass
 	public static void setUpClass() {
 		context = Ij1TestFiji.context();
+	}
+
+	@AfterClass
+	public static void tearDownClass() {
+		Ij1TestFiji.shutdown();
 	}
 
 	@Test

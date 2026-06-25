@@ -79,6 +79,10 @@ public class Harvester {
 	 */
 	public static <C extends Command> Future<CommandModule> run(Context context, Class<C> cmdClass,
 															   Object... namedInputs) {
+		// Make the harvester's numeric fields parse the '.' the Robot types,
+		// regardless of the JVM's locale (see Ui.useDotDecimalSeparator). Must
+		// precede cs.run, which builds the dialog (and its formatters).
+		if (Ui.FORCE_DOT_DECIMAL) Ui.useDotDecimalSeparator();
 		Map<String, Object> values = parseValues(namedInputs);
 		CommandService cs = context.service(CommandService.class);
 		Future<CommandModule> future = cs.run(cmdClass, true);

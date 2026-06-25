@@ -122,6 +122,19 @@
 			<artifactId>imagej-legacy</artifactId>
 		</dependency>
 
+		<!-- BigDataViewer-Playground binding (package
+		     ch.epfl.biop.scijava.ui.robot.bdv only). Provides the SourceService
+		     source tree the tree-launcher drives, the ActiveBdvPreprocessor the
+		     active-BDV preset relies on, BdvHandle, and the window helpers. Like
+		     imagej-legacy, this is quarantined to one package so a future module
+		     split moves the bdv package and this dependency together. The bdv
+		     binding depends only on bdvpg's existing public API — no fork needed. -->
+		<dependency>
+			<groupId>sc.fiji</groupId>
+			<artifactId>bigdataviewer-playground</artifactId>
+			<version>0.21.0</version>
+		</dependency>
+
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>

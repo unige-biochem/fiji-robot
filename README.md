@@ -100,11 +100,37 @@ mode — there is no global visible/programmatic switch.
 Keeping this package free-standing is what makes a future split into a separate
 module a matter of moving the package and the `imagej-legacy` dependency.
 
+## BigDataViewer binding (`…robot.bdv`)
+
+The BDV binding is quarantined the same way — the only code that imports
+`bdv.*` / `sc.fiji.*`:
+
+```java
+import static ch.epfl.biop.scijava.ui.robot.bdv.BdvLaunchers.treeLauncher;
+import static ch.epfl.biop.scijava.ui.robot.bdv.BdvResolutions.selectActiveBdv;
+
+CmdExecutor.of(context, MyBdvCommand.class)
+    .preSet("bdvh", selectActiveBdv("BDV alpha"))      // active-BDV preset
+    .withLauncher(treeLauncher("my-dataset>channel 0"))// launch from the source tree
+    .postSet("adjust", fromDialog(true, "We re-center the view."))
+    .launch();
+```
+
+`treeLauncher(path)` right-clicks the BigDataViewer-Playground "BDV Sources"
+tree, walks the context menu to the command, then drives the dialog — and
+contributes the `"sources"` input (the tree path) so `renderGroovy()` reproduces
+it headlessly. Variants: `treeLauncher()` (right-click the root, for commands
+that take no sources) and `treeLauncher(path...)` (Ctrl+click multi-select).
+`selectActiveBdv(title)` is the exact mirror of `selectActiveImage`: it resolves
+the `BdvHandle` by window title for the headless run and activates that window
+for the visible run, so bdv-playground's `ActiveBdvPreprocessor` picks it up.
+
 ## Scope / dependencies
 
 Core depends on `scijava-common` and `scijava-ui-swing` (the harvester it
-drives). The `ij1` package adds `imagej-legacy`. No BDV, no
-bigdataviewer-playground — those belong to binding modules layered on top.
+drives). The `ij1` package adds `imagej-legacy`; the `bdv` package adds
+`bigdataviewer-playground`. Each binding's dependency is used only by its own
+package, so the core stays toolkit-free.
 
 ## Build
 
@@ -112,10 +138,15 @@ bigdataviewer-playground — those belong to binding modules layered on top.
 mvn clean install      # compiles everything; runs the headless test
 mvn test -Dtest=CmdExecutorTest        # headless backbone only
 mvn test -Dtest=HarvesterWidgetsTest   # GUI widget tests — needs a local display
+mvn test -Dtest=TreeLauncherRenderTest # headless — the bdv "sources" contribution
 mvn test -Dtest=SearchLauncherTest     # GUI ij1 test — boots Fiji, needs a display
 mvn test -Dtest=ActiveImagePresetTest  # GUI ij1 test — boots Fiji, needs a display
+mvn test -Dtest=TreeLauncherTest       # GUI bdv test — source-tree right-click → dialog
+mvn test -Dtest=ActiveBdvSelectionTest # GUI bdv test — visibly grabs a BDV window, then tree-launches
+mvn test -Dtest=ActiveBdvPresetTest    # bdv test — programmatic value path (no mouse, by design)
 ```
 
-`HarvesterWidgetsTest` and the `ij1` tests synthesize real mouse / keyboard
-events (and the ij1 ones boot a full Fiji), so they are meant to be run locally,
-not in headless CI.
+`HarvesterWidgetsTest` and the `ij1` / `bdv` GUI tests synthesize real mouse /
+keyboard events (and boot a full Fiji), so they are meant to be run locally, not
+in headless CI. Run one GUI test class per JVM — each boots its own ImageJ
+gateway.

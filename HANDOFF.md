@@ -53,16 +53,19 @@ unsafe by design; it's a video-making tool). bigdataviewer-playground needs
    original toolkit had one); to iterate headlessly you swap the launcher at the
    call site. `CmdExecutor.launch()` stays a one-liner delegating to the launcher,
    which encapsulates its own mode.
-8. **IJ1 lives in this repo but quarantined.** The `…robot.ij1` package is the
-   *only* code allowed to import `ij.*` / `net.imagej.*`; core never does
-   (enforced by convention + a grep check). A future module split is then just
-   "move the `ij1` package + the `imagej-legacy` dependency." Multi-module was
-   considered and deferred — single module for now.
+8. **Bindings live in this repo but quarantined.** Each binding package is the
+   *only* code allowed to import its toolkit: `…robot.ij1` → `ij.*` /
+   `net.imagej.*`; `…robot.bdv` → `bdv.*` / `sc.fiji.*` / `bvv.*`. Core never
+   imports either (enforced by convention + a grep check). A future module split
+   is then just "move the binding package + its one dependency"
+   (`imagej-legacy`, `bigdataviewer-playground`). Multi-module was considered and
+   deferred — single module for now.
 
 ## Current state (committed)
 
 Core depends on `scijava-common` + `scijava-ui-swing`; the `ij1` package adds
-`imagej-legacy` (compile) and the `imagej` gateway (test scope).
+`imagej-legacy`, the `bdv` package adds `bigdataviewer-playground` 0.21.0, and the
+`imagej` gateway is pulled in test-scoped for booting Fiji in GUI tests.
 
 Done:
 - `robot/` — `CmdExecutor` (type-state builder), `InputResolution` /
@@ -73,21 +76,35 @@ Done:
 - `robot/groovy/GroovyRender` — headless `cs.run(...)` snippet projection.
 - `robot/core/` — `Ui`, `Timings`, `Inspector` (ported; used to locate the IJ1
   search bar). `Timeline` / `EventRecorder` / `Step` are **no-op placeholders**.
-- `robot/widgets/Harvester` — decoupled from `Fiji` (takes a `Context`); drives
-  checkbox / number / text / combo / radio / `File` / `File[]`.
+- `robot/widgets/` — `Harvester` (decoupled from `Fiji`; checkbox / number / text
+  / combo / radio / `File` / `File[]`), plus the generic Swing drivers `Tree`
+  (JTree navigation) and `Popup` (JPopupMenu walk), ported from the toolkit and
+  stripped of the bdv-specific `"Sources>"` prefix so they stay binding-free.
 - **`robot/ij1/` (the IJ1 binding, quarantined — decision #8):** `Fiji`
   (`searchAndRun`, ported), `Ij1Launchers.searchLauncher(query)` (visible:
   pre-set gestures → search-bar trigger → `Harvester` drives the dialog),
   `Ij1Resolutions.selectActiveImage(title)` (a `PreSetResolution` + `Gesture` —
   `value()` resolves the `ImagePlus` by title for the headless run; the gesture
   activates its window for the visible run).
+- **`robot/bdv/` (the BDV binding, quarantined — decision #8):**
+  `BdvLaunchers.treeLauncher(path)` / `treeLauncher()` / `treeLauncher(path...)`
+  (visible: right-click the BDV-Playground source tree → walk the popup to the
+  command → `Harvester` drives the dialog; contributes `"sources"` via
+  `Launcher.contributedInputs` for the Groovy projection), and
+  `BdvResolutions.selectActiveBdv(title)` (the BDV mirror of `selectActiveImage` —
+  `value()` resolves the `BdvHandle` by title; the gesture activates its window so
+  `ActiveBdvPreprocessor` reads it). Popup menu path is derived from the command's
+  `MenuPath` (drop the `Plugins > BigDataViewer-Playground` prefix).
 - `LaunchRequest` now exposes the pre-set vs dialog split
   (`runPreSetGestures()`, `dialogArgs()`, `dialogNarrations()`) so a visible
   launcher drives only the dialog inputs.
-- Tests: `CmdExecutorTest` (headless, 4 tests, green here), `HarvesterWidgetsTest`
-  (GUI, 7 widgets, run locally — confirmed by the user), and the ij1 tests
-  (`ActiveImagePresetTest`, `SearchLauncherTest`, GUI/local; compile here, **not
-  yet run** — they boot a real Fiji and drive the screen, so run them locally).
+- Tests: `CmdExecutorTest` (headless, 4) + `TreeLauncherRenderTest` (headless, 3,
+  pins the `"sources"` contribution) green here; `HarvesterWidgetsTest` (GUI, run
+  locally — confirmed by the user); ij1 GUI tests (`ActiveImagePresetTest`,
+  `SearchLauncherTest`) and bdv GUI tests (`ActiveBdvPresetTest`,
+  `TreeLauncherTest`) compile here but are **run locally** — they boot a real
+  Fiji and drive the screen. Run one GUI test class per JVM (each boots its own
+  ImageJ gateway).
 
 ## TODO (roughly in priority order)
 
@@ -117,12 +134,12 @@ it locally to confirm the assumption decision #2 rests on.** If the
 `setCurrentWindow` guarantee turns out to be doing the real work and a pure
 visible click does not survive, revisit whether the gesture is enough on its own.
 
-### 3. Port the remaining generic (non-BDV) widget/AWT helpers
-From `…/docs/videos/`:
-- `core/Inspector` (AWT/Swing tree walker) — pure, port as-is.
+### 3. Port the remaining generic (non-BDV) widget/AWT helpers  ← MOSTLY DONE
+- `core/Inspector` (AWT/Swing tree walker) — **ported**.
 - `widgets/Tree` (JTree driver) and `widgets/Popup` (JPopupMenu navigator) —
-  pure Swing, needed for menu driving and later BDV. Port as-is.
-- Optionally re-add `Harvester.fillListByNames` (`String[]`→`JList`) if a
+  **ported** to core, generic (the bdv-specific `"Sources>"` prefix was stripped;
+  callers pass full paths from the root).
+- Still optional: re-add `Harvester.fillListByNames` (`String[]`→`JList`) if a
   non-BDV multi-select use appears (currently dropped — only BDV used it).
 
 ### 4. Menu-bar driving (a feature the user wants)
@@ -139,13 +156,25 @@ Flesh out the placeholders and port the rest of `core/`:
 hoisting), `Layout`, `CommandRef`, `Demo`. This is large; do it as its own
 increment once the visible execution path (TODO #1) is proven.
 
-### 6. BDV binding module (`scijava-ui-robot-bdv`)
-Deps: core + bdv-core + bigdataviewer-playground. Move/port: `bdv/Bdv` (window
-ops), the source-tree `JTree` widgets + sorted-list drag + `BdvHandle[]`/
-`BvvHandle[]` `JList` branches (re-add to a `Harvester` extension point or a
-binding-side dispatcher), a `treeLauncher` / `launchFromSourcesTree`
-(contributes `"sources"` via `Launcher.contributedInputs`), and a
-`selectActiveBdv` resolution. Port the BDV widget tests from `WidgetsTest`.
+### 6. BDV binding (`…robot.bdv`)  ← STARTED
+Landed (single-module, quarantined package — not a separate repo):
+- `BdvLaunchers.treeLauncher(...)` — source-tree right-click launcher with
+  single / root / multi-select variants; contributes `"sources"` via
+  `Launcher.contributedInputs`. Visible-only (per decision #7), like
+  `searchLauncher`.
+- `BdvResolutions.selectActiveBdv(title)` — the `selectActiveImage` mirror.
+- Tests: `TreeLauncherRenderTest` (headless, the `"sources"` contribution),
+  `ActiveBdvPresetTest` + `TreeLauncherTest` (GUI/local).
+
+Still to port (from `…/docs/videos/bdv/` + the BDV branches of the original
+`Harvester` / `WidgetsTest`):
+- `bdv/Bdv` window/card/slider ops (`setTimepoint`, `setDisplayRange`,
+  `selectSourceInCard`, `setCardPanelExpanded`).
+- The BDV-coupled harvester widgets dropped from core: the source `JTree`
+  widgets, the sorted-list drag widget, and the `BdvHandle[]` / `BvvHandle[]`
+  multi-select `JList` branches — re-add via a `Harvester` extension point or a
+  binding-side dispatcher, plus the BDV widget tests from `WidgetsTest`.
+- A `selectActiveBvv` counterpart if BVV commands need it.
 
 ### 7. Groovy rendering: object-valued inputs + File hoisting
 `GroovyRender.literal` has a TODO fallback for unsupported types. Add a

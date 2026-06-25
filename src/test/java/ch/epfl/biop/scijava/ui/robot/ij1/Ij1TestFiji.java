@@ -49,6 +49,25 @@ final class Ij1TestFiji {
 	}
 
 	/**
+	 * Closes the Fiji UI and disposes the SciJava context. Call from a test's
+	 * {@code @AfterClass} so the run does not leave Fiji windows open. Resets the
+	 * singleton so a later {@link #boot()} (a different test class in a fresh JVM)
+	 * starts clean.
+	 */
+	static synchronized void shutdown() {
+		if (ij == null) return;
+		Context c = ij.getContext();
+		try {
+			Ui.runOnEdt(() -> {
+				for (java.awt.Window w : java.awt.Window.getWindows()) w.dispose();
+			});
+		}
+		catch (Exception ignored) { /* best-effort window cleanup */ }
+		c.dispose();
+		ij = null;
+	}
+
+	/**
 	 * Creates a ramp image, shows it with the given title, and waits for its
 	 * window so it can be activated / found by title. Returns the {@link ImagePlus}.
 	 */

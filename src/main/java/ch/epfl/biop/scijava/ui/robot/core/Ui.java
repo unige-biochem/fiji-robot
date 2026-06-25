@@ -21,6 +21,7 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
+import java.util.Locale;
 
 /**
  * Reusable helpers for Robot-driven UI automation built on top of {@link Robot}.
@@ -42,6 +43,26 @@ public class Ui {
 	/** Top-left position of the GUI frame, RELATIVE to the target screen's origin. */
 	public static int DEFAULT_FRAME_X = 20;
 	public static int DEFAULT_FRAME_Y = 20;
+
+	/**
+	 * Horizontal offset from a window's left edge, in pixels, where a title-bar
+	 * activation click lands (window selectors like {@code selectActiveImage} /
+	 * {@code selectActiveBdv}). Aimed at the left of the title bar — the same value
+	 * as the dialog drag grab — so the click stays clear of the right-side window
+	 * buttons, the resize edges, and the menu bar below the title. Tunable.
+	 */
+	public static int TITLE_BAR_GRAB_X = 10;
+
+	/**
+	 * When {@code true}, the visible run paths force the JVM's number-formatting
+	 * locale to use {@code '.'} as the decimal separator before a harvester dialog
+	 * is built (see {@link #useDotDecimalSeparator()}). The Robot types numbers via
+	 * {@code String.valueOf(...)}, which always emits {@code '.'}; without this, a
+	 * JVM whose locale uses {@code ','} (fr / de / …) would reject the pasted value
+	 * in the harvester's {@code JFormattedTextField}. Default on. Set to
+	 * {@code false} to leave the locale untouched.
+	 */
+	public static boolean FORCE_DOT_DECIMAL = true;
 
 	/**
 	 * Fast-iteration switch. When {@code true}, methods that exist purely for
@@ -70,6 +91,21 @@ public class Ui {
 			}
 		}
 		return robot;
+	}
+
+	/**
+	 * Forces number (and date) formatting to use {@code '.'} as the decimal
+	 * separator, by setting the default {@link Locale.Category#FORMAT} locale to
+	 * {@link Locale#US}. Leaves the {@code DISPLAY} category (UI language) alone.
+	 *
+	 * <p>Must run <em>before</em> the harvester dialog is built, because SciJava's
+	 * numeric {@code JFormattedTextField} captures its formatter from the default
+	 * locale at construction. The visible run paths call this for you when
+	 * {@link #FORCE_DOT_DECIMAL} is set; call it directly (e.g. once at app
+	 * startup) if you drive dialogs another way.</p>
+	 */
+	public static void useDotDecimalSeparator() {
+		Locale.setDefault(Locale.Category.FORMAT, Locale.US);
 	}
 
 	// ===== Screen handling ========================================================

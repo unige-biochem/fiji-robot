@@ -99,13 +99,14 @@ public final class Ij1Resolutions {
 						+ "' to activate.");
 			}
 			ImageWindow win = imp.getWindow();
-			// Visible activation: click the window's title bar so the gesture
-			// reads as a deliberate "pick this image" on a recording.
+			// Visible activation: click the LEFT of the window's title bar so the
+			// gesture reads as a deliberate "pick this image" on a recording while
+			// staying clear of the window buttons, resize edges and menu bar.
 			if (win != null && win.isShowing()) {
 				Insets insets = win.getInsets();
 				int titleBarHeight = Math.max(insets.top, 24);
 				Point loc = win.getLocationOnScreen();
-				Ui.moveTo(loc.x + win.getWidth() / 2, loc.y + titleBarHeight / 2);
+				Ui.moveTo(loc.x + Ui.TITLE_BAR_GRAB_X, loc.y + titleBarHeight / 2);
 				Ui.pause(Timings.PAUSE_AFTER_MOVE_MS);
 				Ui.click();
 				Ui.pause(Timings.PAUSE_AFTER_CLICK_MS);
