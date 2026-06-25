@@ -1,5 +1,6 @@
 package ch.epfl.biop.scijava.ui.robot.bdv;
 
+import ch.epfl.biop.scijava.ui.robot.bdv.command.BdvWidgets;
 import ch.epfl.biop.scijava.ui.robot.widgets.Harvester;
 
 import bdv.util.BdvHandle;

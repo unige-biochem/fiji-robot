@@ -15,7 +15,7 @@ import org.scijava.plugin.Plugin;
 import sc.fiji.bdvpg.viewer.bdv.BdvHandleHelper;
 
 import static ch.epfl.biop.scijava.ui.robot.Launchers.programmaticLauncher;
-import static ch.epfl.biop.scijava.ui.robot.bdv.BdvResolutions.selectActiveBdv;
+import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvResolutions.selectActiveBdv;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 

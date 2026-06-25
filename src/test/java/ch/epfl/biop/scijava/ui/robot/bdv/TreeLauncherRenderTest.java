@@ -10,7 +10,7 @@ import org.scijava.command.Command;
 import org.scijava.command.CommandService;
 import org.scijava.plugin.Plugin;
 
-import static ch.epfl.biop.scijava.ui.robot.bdv.BdvLaunchers.treeLauncher;
+import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvLaunchers.treeLauncher;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 

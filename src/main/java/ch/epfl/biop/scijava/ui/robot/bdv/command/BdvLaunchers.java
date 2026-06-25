@@ -1,4 +1,4 @@
-package ch.epfl.biop.scijava.ui.robot.bdv;
+package ch.epfl.biop.scijava.ui.robot.bdv.command;
 
 import ch.epfl.biop.scijava.ui.robot.LaunchRequest;
 import ch.epfl.biop.scijava.ui.robot.Launcher;

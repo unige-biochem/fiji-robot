@@ -1,4 +1,4 @@
-package ch.epfl.biop.scijava.ui.robot.bdv;
+package ch.epfl.biop.scijava.ui.robot.bdv.command;
 
 import ch.epfl.biop.scijava.ui.robot.Gesture;
 import ch.epfl.biop.scijava.ui.robot.GestureContext;
@@ -23,7 +23,7 @@ import java.util.List;
  * the BDV mirror of {@code Ij1Resolutions}. Static-import at the call site:
  *
  * <pre>
- * import static ch.epfl.biop.scijava.ui.robot.bdv.BdvResolutions.*;
+ * import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvResolutions.*;
  *
  * CmdExecutor.of(context, MyBdvCommand.class)
  *     .preSet("bdvh", selectActiveBdv("BDV alpha"))

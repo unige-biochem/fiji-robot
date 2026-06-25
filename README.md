@@ -102,12 +102,17 @@ module a matter of moving the package and the `imagej-legacy` dependency.
 
 ## BigDataViewer binding (`…robot.bdv`)
 
-The BDV binding is quarantined the same way — the only code that imports
-`bdv.*` / `sc.fiji.*`:
+The BDV binding is quarantined the same way — the only subtree that imports
+`bdv.*` / `sc.fiji.*`. It splits along the two capabilities the library offers:
+`…robot.bdv.command` connects BDV to the command executor (`BdvLaunchers`,
+`BdvResolutions`, and the harvester source-widget drivers `BdvWidgets`), while
+`…robot.bdv.view` holds standalone Robot drivers for a BDV window (`Bdv` —
+expand the card panel, pick a source, set a display range, drag the timepoint
+slider), the kind of thing a demo script does *between* command runs.
 
 ```java
-import static ch.epfl.biop.scijava.ui.robot.bdv.BdvLaunchers.treeLauncher;
-import static ch.epfl.biop.scijava.ui.robot.bdv.BdvResolutions.selectActiveBdv;
+import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvLaunchers.treeLauncher;
+import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvResolutions.selectActiveBdv;
 
 CmdExecutor.of(context, MyBdvCommand.class)
     .preSet("bdvh", selectActiveBdv("BDV alpha"))      // active-BDV preset

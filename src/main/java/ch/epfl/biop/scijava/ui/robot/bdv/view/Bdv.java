@@ -1,4 +1,4 @@
-package ch.epfl.biop.scijava.ui.robot.bdv;
+package ch.epfl.biop.scijava.ui.robot.bdv.view;
 
 import ch.epfl.biop.scijava.ui.robot.core.Timings;
 import ch.epfl.biop.scijava.ui.robot.core.Ui;

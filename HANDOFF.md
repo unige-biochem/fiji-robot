@@ -93,22 +93,30 @@ Done:
   `Ij1Resolutions.selectActiveImage(title)` (a `PreSetResolution` + `Gesture` —
   `value()` resolves the `ImagePlus` by title for the headless run; the gesture
   activates its window for the visible run).
-- **`robot/bdv/` (the BDV binding, quarantined — decision #8):**
-  `BdvLaunchers.treeLauncher(path)` / `treeLauncher()` / `treeLauncher(path...)`
-  (visible: right-click the BDV-Playground source tree → walk the popup to the
-  command → `Harvester` drives the dialog; contributes `"sources"` via
-  `Launcher.contributedInputs` for the Groovy projection), and
-  `BdvResolutions.selectActiveBdv(title)` (the BDV mirror of `selectActiveImage` —
-  `value()` resolves the `BdvHandle` by title; the gesture activates its window so
-  `ActiveBdvPreprocessor` reads it). Popup menu path is derived from the command's
-  `MenuPath` (drop the `Plugins > BigDataViewer-Playground` prefix).
-  `BdvWidgets` registers three `WidgetDriver`s on `Harvester` (single-source
-  `JTree`, `style="sorted"` tree→list drag, `BdvHandle[]`/`BvvHandle[]` flat-list
-  multi-select); the tree launchers call `BdvWidgets.register()` so a launched
-  command's source widgets are driveable, and a test driving `Harvester.run`
-  directly calls it in setup. `Bdv` holds the BDV-window source ops
-  (`setTimepoint`, `setCardPanelExpanded`, `selectSourceInCard`,
-  `setDisplayRange`), ported from the toolkit.
+- **`robot/bdv/` (the BDV binding, quarantined — decision #8).** Split into two
+  sub-packages along the library's two capabilities — *run a command* vs *drive
+  UI directly* — the same line core already draws (root pkg / `CmdExecutor` vs
+  `widgets/` + `core/Ui`). Both stay under `…robot.bdv`, so the quarantine (only
+  the `…robot.bdv` subtree imports `bdv.*` / `sc.fiji.*`) is unaffected.
+  - **`bdv/command/` (connects BDV to `CmdExecutor`):**
+    `BdvLaunchers.treeLauncher(path)` / `treeLauncher()` / `treeLauncher(path...)`
+    (visible: right-click the BDV-Playground source tree → walk the popup to the
+    command → `Harvester` drives the dialog; contributes `"sources"` via
+    `Launcher.contributedInputs` for the Groovy projection);
+    `BdvResolutions.selectActiveBdv(title)` (the BDV mirror of `selectActiveImage`
+    — `value()` resolves the `BdvHandle` by title; the gesture activates its
+    window so `ActiveBdvPreprocessor` reads it; popup menu path derived from the
+    command's `MenuPath`, dropping the `Plugins > BigDataViewer-Playground`
+    prefix); and `BdvWidgets`, which registers three `WidgetDriver`s on
+    `Harvester` (single-source `JTree`, `style="sorted"` tree→list drag,
+    `BdvHandle[]`/`BvvHandle[]` flat-list multi-select). The tree launchers call
+    `BdvWidgets.register()` so a launched command's source widgets are driveable;
+    a test driving `Harvester.run` directly calls it in setup.
+  - **`bdv/view/` (standalone Robot drivers for a BDV window, invoked by the
+    demo script *between* command runs — not by the executor):** `Bdv`
+    (`setTimepoint`, `setCardPanelExpanded`, `selectSourceInCard`,
+    `setDisplayRange`), ported from the toolkit. Future BVV / canvas drivers
+    land here.
 - `LaunchRequest` now exposes the pre-set vs dialog split
   (`runPreSetGestures()`, `dialogArgs()`, `dialogNarrations()`) so a visible
   launcher drives only the dialog inputs.
@@ -184,7 +192,7 @@ Landed (single-module, quarantined package — not a separate repo):
   `Launcher.contributedInputs`. Visible-only (per decision #7), like
   `searchLauncher`.
 - `BdvResolutions.selectActiveBdv(title)` — the `selectActiveImage` mirror.
-- **`BdvWidgets` — the BDV harvester source widgets** (re-added via the
+- **`bdv/command/BdvWidgets` — the BDV harvester source widgets** (re-added via the
   `Harvester` `WidgetDriver` extension point, settling the "extension point vs
   binding-side dispatcher" question in TODO #6 in favour of the extension point).
   Three drivers: the single-source `JTree` (`SwingSourceWidget` /
@@ -194,7 +202,7 @@ Landed (single-module, quarantined package — not a separate repo):
   `BdvHandle[]` / `BvvHandle[]` (`SwingBdvHandleListWidget` /
   `SwingBvvHandleListWidget`). One driver covers both BDV and BVV handle lists
   (same Swing shape).
-- **`bdv/Bdv`** — BDV-window source ops ported (`setTimepoint`,
+- **`bdv/view/Bdv`** — BDV-window source ops ported (`setTimepoint`,
   `setCardPanelExpanded`, `selectSourceInCard`, `setDisplayRange`).
 - Tests: `TreeLauncherRenderTest` + `WidgetDriverDispatchTest` (headless),
   `ActiveBdvPresetTest` + `TreeLauncherTest` + `ActiveBdvSelectionTest` +
@@ -203,8 +211,8 @@ Landed (single-module, quarantined package — not a separate repo):
 
 Still to port (from `…/docs/videos/bdv/`):
 - A `selectActiveBvv` counterpart if BVV commands need it.
-- A GUI test for the `bdv/Bdv` window ops themselves (`setDisplayRange` etc.);
-  currently `Bdv` is ported but only exercised by the demo, not a unit test.
+- A GUI test for the `bdv/view/Bdv` window ops themselves (`setDisplayRange`
+  etc.); currently `Bdv` is ported but only exercised by the demo, not a unit test.
 
 ### 7. Groovy rendering: object-valued inputs + File hoisting
 `GroovyRender.literal` has a TODO fallback for unsupported types. Add a

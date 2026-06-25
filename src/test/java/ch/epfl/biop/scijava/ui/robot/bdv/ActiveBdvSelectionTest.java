@@ -17,8 +17,8 @@ import sc.fiji.bdvpg.viewer.bdv.BdvHandleHelper;
 import java.awt.Frame;
 
 import static ch.epfl.biop.scijava.ui.robot.Resolutions.fromDialog;
-import static ch.epfl.biop.scijava.ui.robot.bdv.BdvLaunchers.treeLauncher;
-import static ch.epfl.biop.scijava.ui.robot.bdv.BdvResolutions.selectActiveBdv;
+import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvLaunchers.treeLauncher;
+import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvResolutions.selectActiveBdv;
 import static org.junit.Assert.assertEquals;
 
 /**

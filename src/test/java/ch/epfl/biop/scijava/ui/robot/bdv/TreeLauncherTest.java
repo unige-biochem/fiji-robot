@@ -12,7 +12,7 @@ import sc.fiji.bdvpg.command.BdvPlaygroundActionCommand;
 import sc.fiji.bdvpg.scijava.BdvPgMenus;
 
 import static ch.epfl.biop.scijava.ui.robot.Resolutions.fromDialog;
-import static ch.epfl.biop.scijava.ui.robot.bdv.BdvLaunchers.treeLauncher;
+import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvLaunchers.treeLauncher;
 import static org.junit.Assert.assertEquals;
 
 /**
