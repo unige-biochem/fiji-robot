@@ -5,9 +5,10 @@ the way a user would — establishing context, triggering it, filling its dialog
 so the run can be both **reproduced headlessly** and **recorded** (cursor
 motion, subtitles, timeline) for tutorial videos.
 
-> Status: early. This first slice establishes the design backbone and is
-> deliberately tiny. The `java.awt.Robot` gesture layer and the BDV / IJ1
-> bindings are not here yet.
+> Status: early. The type-state builder backbone is in place, plus the first
+> slice of the `java.awt.Robot` widget layer (driving SciJava harvester dialogs)
+> ported from the original tutorial-video toolkit. The recording layer
+> (`timeline.json`, screenshots) and the BDV / IJ1 bindings are not here yet.
 
 ## The design in one builder
 
@@ -53,18 +54,38 @@ survives into the preprocessor chain and the real preprocessor picks it up. So
 the temporal model is just **pre-set → launch → dialog** — two phases and a
 pivot — which is exactly the builder grammar.
 
+## Visible widget layer
+
+`widgets.Harvester` drives a SciJava command's input-harvester dialog with
+`java.awt.Robot`, located by reflecting each `@Parameter`'s label:
+
+```java
+Harvester.run(context, MyCommand.class, "doIt", true, "name", "hello")
+         .get().getOutput("result");
+```
+
+Supported widgets: checkbox (`boolean`), spinner/slider/scrollbar (`Number`),
+text field / combo / radio group (`String`), and the `File` / `File[]` chooser
+flows. The BDV-specific widgets (source-tree, `BdvHandle[]`/`BvvHandle[]`) live
+in the BDV binding module, not here.
+
+The recording hooks (`core.Timeline`, `core.EventRecorder`, `core.Step`) are
+present as no-op placeholders so the gesture primitives call them exactly as in
+the original toolkit — fleshed out when the recording layer is ported.
+
 ## Scope / dependencies
 
-Core depends only on `scijava-common`. No BDV, no bigdataviewer-playground, no
-imagej-legacy — those belong to binding modules layered on top, so a consumer
-that only needs harvester-dialog driving never pulls them in.
+Core depends on `scijava-common` and `scijava-ui-swing` (the harvester it
+drives). No BDV, no bigdataviewer-playground, no imagej-legacy — those belong to
+binding modules layered on top.
 
 ## Build
 
 ```bash
-mvn clean install
-mvn test
+mvn clean install      # compiles everything; runs the headless test
+mvn test -Dtest=CmdExecutorTest        # headless backbone only
+mvn test -Dtest=HarvesterWidgetsTest   # GUI widget tests — needs a local display
 ```
 
-GUI-driven tests (the Robot layer) are a known hard problem for CI and are
-deferred; everything here runs headless.
+`HarvesterWidgetsTest` synthesizes real mouse / keyboard events and needs a
+visible display, so it is meant to be run locally, not in headless CI.

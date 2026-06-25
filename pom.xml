@@ -103,6 +103,14 @@
 			<artifactId>scijava-common</artifactId>
 		</dependency>
 
+		<!-- The Swing input harvester this library drives. Required at runtime
+		     for the visible widget layer (and the GUI tests) to produce dialogs;
+		     a consumer that only uses programmatic mode does not need it active. -->
+		<dependency>
+			<groupId>org.scijava</groupId>
+			<artifactId>scijava-ui-swing</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
