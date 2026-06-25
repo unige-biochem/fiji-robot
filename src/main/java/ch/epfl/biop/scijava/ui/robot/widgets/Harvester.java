@@ -29,12 +29,12 @@ import java.awt.Rectangle;
 import java.awt.event.KeyEvent;
 import java.io.File;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
 
 /**
@@ -61,9 +61,42 @@ import java.util.concurrent.Future;
  * <p>Widgets that depend on BigDataViewer / bigdataviewer-playground (the source
  * {@code JTree} widgets, the sorted-list drag widget, and the
  * {@code BdvHandle[]}/{@code BvvHandle[]} multi-select {@code JList}) live in the
- * BDV binding module, not here, so this module stays free of those dependencies.</p>
+ * BDV binding module, not here, so this module stays free of those dependencies.
+ * The binding plugs them in through the {@link WidgetDriver} extension point
+ * (see {@link #registerDriver}); every registered driver is consulted before the
+ * built-in ladder below.</p>
  */
 public class Harvester {
+
+	/**
+	 * Binding-contributed widget drivers, consulted (in registration order)
+	 * before the built-in type ladder in {@link #fillWidget}. Copy-on-write so
+	 * registration from a binding's static initializer is safe against a
+	 * concurrent dialog drive.
+	 */
+	private static final List<WidgetDriver> DRIVERS = new CopyOnWriteArrayList<>();
+
+	/**
+	 * Register a {@link WidgetDriver} so {@link #fillWidget} consults it before
+	 * its built-in widget ladder. Idempotent: a driver already registered (by
+	 * identity) is not added twice, so a binding can call this from a static
+	 * initializer without guarding. Intended for binding modules (e.g. the BDV
+	 * source / handle-list widgets); core never registers any driver itself.
+	 */
+	public static void registerDriver(WidgetDriver driver) {
+		if (driver == null) throw new IllegalArgumentException("driver must not be null");
+		if (!DRIVERS.contains(driver)) DRIVERS.add(driver);
+	}
+
+	/** Remove a previously {@linkplain #registerDriver registered} driver. Returns whether it was present. */
+	public static boolean unregisterDriver(WidgetDriver driver) {
+		return DRIVERS.remove(driver);
+	}
+
+	/** The registered drivers, in registration order (unmodifiable snapshot). */
+	public static List<WidgetDriver> registeredDrivers() {
+		return Collections.unmodifiableList(new java.util.ArrayList<>(DRIVERS));
+	}
 
 	/**
 	 * Launches {@code cmdClass} via the {@link CommandService} from
@@ -269,16 +302,7 @@ public class Harvester {
 
 	/** Recursively collect all components of {@code type} under {@code root}. */
 	private static <T extends Component> List<T> findAll(Container root, Class<T> type) {
-		List<T> out = new ArrayList<>();
-		collect(root, type, out);
-		return out;
-	}
-
-	private static <T extends Component> void collect(Container c, Class<T> type, List<T> out) {
-		for (Component child : c.getComponents()) {
-			if (type.isInstance(child)) out.add(type.cast(child));
-			if (child instanceof Container) collect((Container) child, type, out);
-		}
+		return Widgets.findAll(root, type);
 	}
 
 	// ===== Widget driving (Robot) ================================================
@@ -288,7 +312,17 @@ public class Harvester {
 	 * hold several widgets (e.g. {@code File} → JTextField + Browse button); the
 	 * value type tells us which one the caller wants to drive.
 	 */
-	private static void fillWidget(Container inputContainer, Object value) {
+	static void fillWidget(Container inputContainer, Object value) {
+		// Binding-contributed widgets first: a driver that recognizes this
+		// container shape + value type (e.g. a BDV source JTree) wins over the
+		// built-in ladder. Drivers are shape-specific, so this never shadows a
+		// pure-SciJava widget — a checkbox row matches no driver and falls through.
+		for (WidgetDriver d : DRIVERS) {
+			if (d.matches(inputContainer, value)) {
+				d.fill(inputContainer, value);
+				return;
+			}
+		}
 		if (value instanceof Boolean) {
 			JCheckBox cb = firstOf(inputContainer, JCheckBox.class, "JCheckBox");
 			fillCheckBox(cb, (Boolean) value);
