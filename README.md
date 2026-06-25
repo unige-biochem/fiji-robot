@@ -17,14 +17,21 @@ compiler — pre-set inputs, then exactly one launcher, then dialog inputs, then
 single terminal `launch()`:
 
 ```java
-import static ch.epfl.biop.scijava.ui.robot.Resolutions.*;
-import static ch.epfl.biop.scijava.ui.robot.Launchers.*;
 
-CmdExecutor.of(context, MyCommand.class)
-    .preSet("a", programmatic(2))                  // resolved before launch
-    .withLauncher(programmaticLauncher())          // the one trigger
-    .postSet("min", fromDialog(0.0, "lower bound"))// harvested from the dialog
-    .launch();                                      // execute  (or .renderGroovy())
+
+CmdExecutor.of(context, MyCommand .class)
+    .
+
+preSet("a",programmatic(2))                  // resolved before launch
+        .
+
+withLauncher(programmaticLauncher())          // the one trigger
+        .
+
+postSet("min",fromDialog(0.0, "lower bound"))// harvested from the dialog
+        .
+
+launch();                                      // execute  (or .renderGroovy())
 ```
 
 `withLauncher(...)` returns a different builder type, so out-of-order calls
@@ -80,14 +87,22 @@ package — the only code allowed to import `ij.*` / `net.imagej.*`. It adds two
 factories that mirror the core ones:
 
 ```java
-import static ch.epfl.biop.scijava.ui.robot.ij1.Ij1Launchers.searchLauncher;
-import static ch.epfl.biop.scijava.ui.robot.ij1.Ij1Resolutions.selectActiveImage;
 
-CmdExecutor.of(context, MyImageCommand.class)
-    .preSet("imp", selectActiveImage("blobs.gif"))   // active-image preset
-    .withLauncher(searchLauncher("my command"))      // launch via the search bar
-    .postSet("radius", fromDialog(3.0, "We set the radius."))
-    .launch();
+import static ij1.ch.unige.biochem.fiji.robot.Ij1Resolutions.selectActiveImage;
+
+CmdExecutor.of(context, MyImageCommand .class)
+    .
+
+preSet("imp",selectActiveImage("blobs.gif"))   // active-image preset
+        .
+
+withLauncher(searchLauncher("my command"))      // launch via the search bar
+        .
+
+postSet("radius",fromDialog(3.0, "We set the radius."))
+        .
+
+launch();
 ```
 
 `searchLauncher(query)` is a *visible* launcher: it runs the pre-set gestures,
@@ -111,14 +126,22 @@ expand the card panel, pick a source, set a display range, drag the timepoint
 slider), the kind of thing a demo script does *between* command runs.
 
 ```java
-import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvLaunchers.treeLauncher;
-import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvResolutions.selectActiveBdv;
+import static command.bdv.ch.unige.biochem.fiji.robot.BdvLaunchers.treeLauncher;
+import static command.bdv.ch.unige.biochem.fiji.robot.BdvResolutions.selectActiveBdv;
 
-CmdExecutor.of(context, MyBdvCommand.class)
-    .preSet("bdvh", selectActiveBdv("BDV alpha"))      // active-BDV preset
-    .withLauncher(treeLauncher("my-dataset>channel 0"))// launch from the source tree
-    .postSet("adjust", fromDialog(true, "We re-center the view."))
-    .launch();
+CmdExecutor.of(context, MyBdvCommand .class)
+    .
+
+preSet("bdvh",selectActiveBdv("BDV alpha"))      // active-BDV preset
+        .
+
+withLauncher(treeLauncher("my-dataset>channel 0"))// launch from the source tree
+        .
+
+postSet("adjust",fromDialog(true, "We re-center the view."))
+        .
+
+launch();
 ```
 
 `treeLauncher(path)` right-clicks the BigDataViewer-Playground "BDV Sources"
