@@ -115,6 +115,9 @@ public final class BdvLaunchers {
 		@Override
 		public Module launch(LaunchRequest request) {
 			if (Ui.FORCE_DOT_DECIMAL) Ui.useDotDecimalSeparator();
+			// Teach the harvester the BDV source / sorted / handle-list widgets so
+			// any such parameter in this command's dialog is driveable. Idempotent.
+			BdvWidgets.register();
 			request.runPreSetGestures();
 
 			JTree jtree = sourceTree(request.context());

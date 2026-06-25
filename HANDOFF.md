@@ -78,8 +78,15 @@ Done:
   search bar). `Timeline` / `EventRecorder` / `Step` are **no-op placeholders**.
 - `robot/widgets/` — `Harvester` (decoupled from `Fiji`; checkbox / number / text
   / combo / radio / `File` / `File[]`), plus the generic Swing drivers `Tree`
-  (JTree navigation) and `Popup` (JPopupMenu walk), ported from the toolkit and
+  (JTree navigation), `Popup` (JPopupMenu walk), `Lists` (flat-`JList`
+  multi-select) and the `Widgets` component finder, ported from the toolkit and
   stripped of the bdv-specific `"Sources>"` prefix so they stay binding-free.
+  `Harvester` exposes a **`WidgetDriver` extension point** (`registerDriver` /
+  `unregisterDriver`): each registered driver is consulted before the built-in
+  type ladder, so a binding plugs in widgets core can't know about (the BDV
+  source widgets) without core importing the binding. Drivers match by
+  container *shape* + value type, so registration is harmless for unrelated
+  dialogs.
 - **`robot/ij1/` (the IJ1 binding, quarantined — decision #8):** `Fiji`
   (`searchAndRun`, ported), `Ij1Launchers.searchLauncher(query)` (visible:
   pre-set gestures → search-bar trigger → `Harvester` drives the dialog),
@@ -95,16 +102,29 @@ Done:
   `value()` resolves the `BdvHandle` by title; the gesture activates its window so
   `ActiveBdvPreprocessor` reads it). Popup menu path is derived from the command's
   `MenuPath` (drop the `Plugins > BigDataViewer-Playground` prefix).
+  `BdvWidgets` registers three `WidgetDriver`s on `Harvester` (single-source
+  `JTree`, `style="sorted"` tree→list drag, `BdvHandle[]`/`BvvHandle[]` flat-list
+  multi-select); the tree launchers call `BdvWidgets.register()` so a launched
+  command's source widgets are driveable, and a test driving `Harvester.run`
+  directly calls it in setup. `Bdv` holds the BDV-window source ops
+  (`setTimepoint`, `setCardPanelExpanded`, `selectSourceInCard`,
+  `setDisplayRange`), ported from the toolkit.
 - `LaunchRequest` now exposes the pre-set vs dialog split
   (`runPreSetGestures()`, `dialogArgs()`, `dialogNarrations()`) so a visible
   launcher drives only the dialog inputs.
 - Tests: `CmdExecutorTest` (headless, 4) + `TreeLauncherRenderTest` (headless, 3,
-  pins the `"sources"` contribution) green here; `HarvesterWidgetsTest` (GUI, run
-  locally — confirmed by the user); ij1 GUI tests (`ActiveImagePresetTest`,
-  `SearchLauncherTest`) and bdv GUI tests (`ActiveBdvPresetTest`,
-  `TreeLauncherTest`) compile here but are **run locally** — they boot a real
-  Fiji and drive the screen. Run one GUI test class per JVM (each boots its own
-  ImageJ gateway).
+  pins the `"sources"` contribution) + `WidgetDriverDispatchTest` (headless, 4,
+  pins the `WidgetDriver` extension-point contract) green here;
+  `HarvesterWidgetsTest` (GUI, run locally — confirmed by the user); ij1 GUI tests
+  (`ActiveImagePresetTest`, `SearchLauncherTest`) and bdv GUI tests
+  (`ActiveBdvPresetTest`, `TreeLauncherTest`, `ActiveBdvSelectionTest`,
+  `SourceWidgetsTest`) compile here but are **run locally** — they boot a real
+  Fiji and drive the screen (the user has confirmed `SourceWidgetsTest` green).
+  Run one GUI test class per JVM (each boots its own ImageJ gateway).
+  `SourceWidgetsTest` makes its example sources with bdv-playground's procedural
+  `VoronoiSourceCreator` (no Bio-Formats, no download — see `BdvTestSources`) and
+  derives expected tree paths / leaf counts from the live model instead of
+  hardcoding them.
 
 ## TODO (roughly in priority order)
 
@@ -139,8 +159,9 @@ visible click does not survive, revisit whether the gesture is enough on its own
 - `widgets/Tree` (JTree driver) and `widgets/Popup` (JPopupMenu navigator) —
   **ported** to core, generic (the bdv-specific `"Sources>"` prefix was stripped;
   callers pass full paths from the root).
-- Still optional: re-add `Harvester.fillListByNames` (`String[]`→`JList`) if a
-  non-BDV multi-select use appears (currently dropped — only BDV used it).
+- Done: the flat-`JList` multi-select primitive is back as the generic
+  `widgets/Lists.selectByNames` (`String[]`→`JList`), used by the BDV handle-list
+  driver; available to any future non-BDV multi-select use.
 
 ### 4. Menu-bar driving (a feature the user wants)
 `MenuDriver` interface + `widgets/MenuBar` (Swing `JMenuBar`: open top-level
@@ -156,25 +177,34 @@ Flesh out the placeholders and port the rest of `core/`:
 hoisting), `Layout`, `CommandRef`, `Demo`. This is large; do it as its own
 increment once the visible execution path (TODO #1) is proven.
 
-### 6. BDV binding (`…robot.bdv`)  ← STARTED
+### 6. BDV binding (`…robot.bdv`)  ← SOURCE WIDGETS DONE
 Landed (single-module, quarantined package — not a separate repo):
 - `BdvLaunchers.treeLauncher(...)` — source-tree right-click launcher with
   single / root / multi-select variants; contributes `"sources"` via
   `Launcher.contributedInputs`. Visible-only (per decision #7), like
   `searchLauncher`.
 - `BdvResolutions.selectActiveBdv(title)` — the `selectActiveImage` mirror.
-- Tests: `TreeLauncherRenderTest` (headless, the `"sources"` contribution),
-  `ActiveBdvPresetTest` + `TreeLauncherTest` (GUI/local).
+- **`BdvWidgets` — the BDV harvester source widgets** (re-added via the
+  `Harvester` `WidgetDriver` extension point, settling the "extension point vs
+  binding-side dispatcher" question in TODO #6 in favour of the extension point).
+  Three drivers: the single-source `JTree` (`SwingSourceWidget` /
+  `SwingSourceListWidget` — a leaf selects one source, a parent selects all
+  descendants = the multi-source case), the `style="sorted"` tree→list drag
+  (`SwingSourceSortedListWidget`), and the flat-`JList` multi-select for
+  `BdvHandle[]` / `BvvHandle[]` (`SwingBdvHandleListWidget` /
+  `SwingBvvHandleListWidget`). One driver covers both BDV and BVV handle lists
+  (same Swing shape).
+- **`bdv/Bdv`** — BDV-window source ops ported (`setTimepoint`,
+  `setCardPanelExpanded`, `selectSourceInCard`, `setDisplayRange`).
+- Tests: `TreeLauncherRenderTest` + `WidgetDriverDispatchTest` (headless),
+  `ActiveBdvPresetTest` + `TreeLauncherTest` + `ActiveBdvSelectionTest` +
+  `SourceWidgetsTest` (GUI/local). `BdvTestSources` makes example sources with
+  `VoronoiSourceCreator` (procedural — no Bio-Formats).
 
-Still to port (from `…/docs/videos/bdv/` + the BDV branches of the original
-`Harvester` / `WidgetsTest`):
-- `bdv/Bdv` window/card/slider ops (`setTimepoint`, `setDisplayRange`,
-  `selectSourceInCard`, `setCardPanelExpanded`).
-- The BDV-coupled harvester widgets dropped from core: the source `JTree`
-  widgets, the sorted-list drag widget, and the `BdvHandle[]` / `BvvHandle[]`
-  multi-select `JList` branches — re-add via a `Harvester` extension point or a
-  binding-side dispatcher, plus the BDV widget tests from `WidgetsTest`.
+Still to port (from `…/docs/videos/bdv/`):
 - A `selectActiveBvv` counterpart if BVV commands need it.
+- A GUI test for the `bdv/Bdv` window ops themselves (`setDisplayRange` etc.);
+  currently `Bdv` is ported but only exercised by the demo, not a unit test.
 
 ### 7. Groovy rendering: object-valued inputs + File hoisting
 `GroovyRender.literal` has a TODO fallback for unsupported types. Add a
