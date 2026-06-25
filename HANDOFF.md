@@ -75,7 +75,24 @@ Done:
   *optionally* implements `Gesture` for a visible action).
 - `robot/groovy/GroovyRender` — headless `cs.run(...)` snippet projection.
 - `robot/core/` — `Ui`, `Timings`, `Inspector` (ported; used to locate the IJ1
-  search bar). `Timeline` / `EventRecorder` / `Step` are **no-op placeholders**.
+  search bar). **Recording layer ported and decoupled (was placeholders):**
+  `Timeline` (in-memory recorder + `timeline.json` v4 writer), `EventRecorder`
+  (global AWT human-gesture capture), `Step` (narrated step bracketing +
+  waitForUser), plus `ScreenRecorder` (ffmpeg gdigrab subprocess),
+  `Screenshotter` (Robot PNG capture), `Assets` (per-demo output session),
+  `CommandRef` (DTO). The key design change vs the original toolkit:
+  **`Timeline` no longer hard-depends on `ScreenRecorder` or `GroovyScript`** —
+  it owns its own clip index/name counter (lockstep with `ScreenRecorder` via
+  identical `%03d-slug.mp4` naming), takes the ffmpeg first-frame anchor through
+  `setFirstFrameAnchor(...)` (fed by `Step.end()`), and gets the embedded
+  reproduction script through an optional pluggable `Timeline.ScriptSource`
+  (null → script block omitted). That decoupling is what makes a
+  `timeline.json` headlessly testable: with `ScreenRecorder.ENABLED=false` +
+  `Screenshotter.ENABLED=false` + `Timeline.ENABLED=true`, a demo produces a
+  complete deterministic `timeline.json` with no ffmpeg/display/PNGs. `Ui` gained
+  the recording-bounds helpers (`recordingBoundsLogical/Physical`,
+  `targetScreenPhysicalBounds`, `RECORDING_BOTTOM_INSET_PX`, `logScreens`), all
+  headless-guarded.
 - `robot/widgets/` — `Harvester` (decoupled from `Fiji`; checkbox / number / text
   / combo / radio / `File` / `File[]`), plus the generic Swing drivers `Tree`
   (JTree navigation), `Popup` (JPopupMenu walk), `Lists` (flat-`JList`
@@ -122,7 +139,12 @@ Done:
   launcher drives only the dialog inputs.
 - Tests: `CmdExecutorTest` (headless, 4) + `TreeLauncherRenderTest` (headless, 3,
   pins the `"sources"` contribution) + `WidgetDriverDispatchTest` (headless, 4,
-  pins the `WidgetDriver` extension-point contract) green here;
+  pins the `WidgetDriver` extension-point contract) + `core/RecordingTimelineTest`
+  (headless, 3 — pins the `timeline.json` v4 shape: steps/clips, comments,
+  mouse/key events, intro/outro, the optional `ScriptSource` block, and the
+  disabled-Timeline no-write case) green here; `core/RecordingLayerDemo` is a
+  runnable `main` worked example (no JUnit) that wires the recording layer to
+  `GroovyRender` and prints/writes a full sample `timeline.json`;
   `HarvesterWidgetsTest` (GUI, run locally — confirmed by the user); ij1 GUI tests
   (`ActiveImagePresetTest`, `SearchLauncherTest`) and bdv GUI tests
   (`ActiveBdvPresetTest`, `TreeLauncherTest`, `ActiveBdvSelectionTest`,
@@ -177,13 +199,28 @@ visible click does not survive, revisit whether the gesture is enough on its own
 (AWT menu has no bounds → keyboard mnemonics or route to search) in the IJ1
 binding. A `menuLauncher` uses it.
 
-### 5. Recording layer (the video-making half)
-Flesh out the placeholders and port the rest of `core/`:
+### 5. Recording layer (the video-making half)  ← CORE PORTED
+Landed (decoupled + headless-testable — see "Current state"):
 `Timeline` (timeline.json v4), `EventRecorder` (global AWT listener),
-`Step` (narration timing, screenshots, intro/outro), plus `Assets`,
-`ScreenRecorder`, `Screenshotter`, `GroovyScript` (full, with `#@File`
-hoisting), `Layout`, `CommandRef`, `Demo`. This is large; do it as its own
-increment once the visible execution path (TODO #1) is proven.
+`Step` (narration timing, screenshots, intro/outro, waitForUser), `Assets`,
+`ScreenRecorder`, `Screenshotter`, `CommandRef`. `RecordingTimelineTest`
+(headless) pins the JSON shape; `RecordingLayerDemo` (`main`) is the worked
+example.
+
+Still to port / wire:
+- **`GroovyScript`** — the full `#@File`-hoisting script accumulator. Not
+  ported: the new repo renders Groovy via the plan-based `GroovyRender`
+  projector, not a step-accumulator, so `Timeline.ScriptSource` is the seam.
+  A small adapter that drives `Timeline.scriptSource` from a `CmdExecutor`
+  plan (per-step body = `renderRun`, preamble = imports + `#@File` hoist)
+  would auto-populate the embedded script during a real demo — currently a
+  demo wires the `ScriptSource` by hand (see `RecordingLayerDemo`). The
+  `#@File` hoisting (decision in TODO #7) lives here.
+- **`Layout`** (multi-window placement presets) and the **`Demo`** authoring
+  facade (intro/outro + youtube-description.md emission) — not yet ported;
+  port when a real multi-step video demo is assembled.
+- A GUI smoke test that records an actual short clip (`ScreenRecorder` +
+  `EventRecorder` live) — run locally, like the other GUI tests.
 
 ### 6. BDV binding (`…robot.bdv`)  ← SOURCE WIDGETS DONE
 Landed (single-module, quarantined package — not a separate repo):

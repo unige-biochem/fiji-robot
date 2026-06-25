@@ -21,6 +21,7 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
+import java.awt.geom.AffineTransform;
 import java.util.Locale;
 
 /**
@@ -125,6 +126,92 @@ public class Ui {
 	/** Bounds of the target screen in absolute virtual-desktop coordinates. */
 	public static Rectangle targetScreenBounds() {
 		return targetScreen().getDefaultConfiguration().getBounds();
+	}
+
+	/**
+	 * Bounds of the target screen in <em>physical</em> pixels — i.e. logical
+	 * AWT bounds multiplied by the device DPI scale from
+	 * {@link GraphicsConfiguration#getDefaultTransform()}.
+	 *
+	 * <p>Use this for tools that interpret screen coordinates in physical
+	 * pixels regardless of Windows DPI scaling — most importantly
+	 * {@code ffmpeg -f gdigrab}: passing logical bounds to gdigrab on a
+	 * &gt;100% DPI screen captures only a fraction of the visible content
+	 * (same output dims, smaller captured area). {@link Robot#createScreenCapture}
+	 * is fine with logical bounds — Java handles the scaling internally.</p>
+	 */
+	public static Rectangle targetScreenPhysicalBounds() {
+		GraphicsConfiguration gc = targetScreen().getDefaultConfiguration();
+		Rectangle logical = gc.getBounds();
+		AffineTransform tx = gc.getDefaultTransform();
+		double sx = tx.getScaleX();
+		double sy = tx.getScaleY();
+		return new Rectangle(
+				(int) Math.round(logical.x * sx),
+				(int) Math.round(logical.y * sy),
+				(int) Math.round(logical.width * sx),
+				(int) Math.round(logical.height * sy));
+	}
+
+	/**
+	 * Reserved bottom strip (in logical pixels) excluded from the recording
+	 * crop. The {@link Step#waitForUser} "Continue when done" popup is placed
+	 * inside this strip — above the OS taskbar but outside the recording — so
+	 * the dismissal click does not appear in the recorded clip or
+	 * auto-screenshot.
+	 *
+	 * <p>Default is sized for a ~80 px popup, a ~40 px Windows taskbar and
+	 * ~30 px of margin. Window placements that previously extended into the
+	 * bottom 150 px of the screen will now be cropped — adjust their
+	 * {@code dragFrame} y-coordinate or shrink them to fit.</p>
+	 */
+	public static int RECORDING_BOTTOM_INSET_PX = 150;
+
+	/**
+	 * Logical recording bounds = {@link #targetScreenBounds()} with the bottom
+	 * {@link #RECORDING_BOTTOM_INSET_PX} stripped off. Use for
+	 * {@link Robot#createScreenCapture} so the screenshot matches the video
+	 * crop. Returns an empty rectangle in a headless environment.
+	 */
+	public static Rectangle recordingBoundsLogical() {
+		if (GraphicsEnvironment.isHeadless()) return new Rectangle(0, 0, 0, 0);
+		Rectangle b = targetScreenBounds();
+		int h = Math.max(0, b.height - RECORDING_BOTTOM_INSET_PX);
+		return new Rectangle(b.x, b.y, b.width, h);
+	}
+
+	/**
+	 * Physical recording bounds for ffmpeg gdigrab: {@link #recordingBoundsLogical()}
+	 * scaled by the device DPI, with width/height floored to even pixels
+	 * (libx264 + yuv420p requires even dimensions; an odd value triggers
+	 * "width not divisible by 2" and ffmpeg aborts).
+	 */
+	public static Rectangle recordingBoundsPhysical() {
+		if (GraphicsEnvironment.isHeadless()) return new Rectangle(0, 0, 0, 0);
+		Rectangle logical = recordingBoundsLogical();
+		GraphicsConfiguration gc = targetScreen().getDefaultConfiguration();
+		AffineTransform tx = gc.getDefaultTransform();
+		double sx = tx.getScaleX();
+		double sy = tx.getScaleY();
+		int x = (int) Math.round(logical.x * sx);
+		int y = (int) Math.round(logical.y * sy);
+		int w = (int) Math.round(logical.width * sx);
+		int h = (int) Math.round(logical.height * sy);
+		w -= w % 2;
+		h -= h % 2;
+		return new Rectangle(x, y, w, h);
+	}
+
+	/** Logs the detected screens — useful to confirm DEFAULT_SCREEN is correct. */
+	public static void logScreens() {
+		GraphicsDevice[] all = screens();
+		System.out.println("[Ui] " + all.length + " screen(s) detected:");
+		for (int i = 0; i < all.length; i++) {
+			Rectangle b = all[i].getDefaultConfiguration().getBounds();
+			String marker = (i == Math.min(DEFAULT_SCREEN, all.length - 1)) ? "  <-- TARGET" : "";
+			System.out.println("  [" + i + "] " + all[i].getIDstring()
+					+ " bounds=" + b + marker);
+		}
 	}
 
 	// ===== Frame placement ========================================================
