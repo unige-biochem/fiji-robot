@@ -2,9 +2,11 @@ package ch.unige.biochem.fiji.robot.ij1;
 
 import ch.unige.biochem.fiji.robot.Gesture;
 import ch.unige.biochem.fiji.robot.GestureContext;
+import ch.unige.biochem.fiji.robot.GroovyRenderable;
 import ch.unige.biochem.fiji.robot.PreSetResolution;
 import ch.unige.biochem.fiji.robot.core.Timings;
 import ch.unige.biochem.fiji.robot.core.Ui;
+import ch.unige.biochem.fiji.robot.groovy.GroovyRenderContext;
 
 import ij.ImagePlus;
 import ij.WindowManager;
@@ -67,7 +69,8 @@ public final class Ij1Resolutions {
 	 * Resolves the active legacy image by window title. Value-bearing for the
 	 * headless run; a {@link Gesture} for the visible run.
 	 */
-	private static final class ActiveImageResolution implements PreSetResolution, Gesture {
+	private static final class ActiveImageResolution
+			implements PreSetResolution, Gesture, GroovyRenderable {
 
 		private final String title;
 		private final String narration;
@@ -90,6 +93,20 @@ public final class Ij1Resolutions {
 
 		@Override
 		public String narration() { return narration; }
+
+		/**
+		 * Render the carried window-title spec, not {@link #value()}: an
+		 * {@code ImagePlus} can't be turned back into the title that selected it.
+		 * Emits {@code WindowManager.getImage("title")} — a deterministic,
+		 * runnable lookup of the same window the demo picked. (Switch to
+		 * {@code IJ.getImage()} here if "whatever image is active" is the intended
+		 * reproduction instead.)
+		 */
+		@Override
+		public String renderGroovy(GroovyRenderContext ctx) {
+			ctx.addImport("ij.WindowManager");
+			return "WindowManager.getImage(\"" + escape(title) + "\")";
+		}
 
 		@Override
 		public void perform(GestureContext context) {
@@ -115,6 +132,10 @@ public final class Ij1Resolutions {
 			// make this the legacy current image so LegacyImagePreprocessor
 			// resolves the command's image parameter to it during the run.
 			Ui.runOnEdt(() -> WindowManager.setCurrentWindow(win));
+		}
+
+		private static String escape(String s) {
+			return s.replace("\\", "\\\\").replace("\"", "\\\"");
 		}
 	}
 }

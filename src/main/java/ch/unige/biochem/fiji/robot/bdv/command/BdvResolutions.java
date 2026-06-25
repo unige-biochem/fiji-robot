@@ -2,9 +2,11 @@ package ch.unige.biochem.fiji.robot.bdv.command;
 
 import ch.unige.biochem.fiji.robot.Gesture;
 import ch.unige.biochem.fiji.robot.GestureContext;
+import ch.unige.biochem.fiji.robot.GroovyRenderable;
 import ch.unige.biochem.fiji.robot.PreSetResolution;
 import ch.unige.biochem.fiji.robot.core.Timings;
 import ch.unige.biochem.fiji.robot.core.Ui;
+import ch.unige.biochem.fiji.robot.groovy.GroovyRenderContext;
 
 import bdv.util.BdvHandle;
 import org.scijava.Context;
@@ -72,7 +74,8 @@ public final class BdvResolutions {
 	 * Resolves a BDV window by title. Value-bearing for the headless run; a
 	 * {@link Gesture} for the visible run.
 	 */
-	private static final class ActiveBdvResolution implements PreSetResolution, Gesture {
+	private static final class ActiveBdvResolution
+			implements PreSetResolution, Gesture, GroovyRenderable {
 
 		private final String title;
 		private final String narration;
@@ -93,6 +96,23 @@ public final class BdvResolutions {
 
 		@Override
 		public String narration() { return narration; }
+
+		/**
+		 * Render the carried window-title spec, not {@link #value()}: a
+		 * {@code BdvHandle} can't be turned back into the title that selected it.
+		 * Emits a by-title lookup over the {@code ObjectService} (hoisted as a
+		 * script parameter), mirroring {@link #find(Context)} — the same lookup
+		 * the headless run does, but as runnable source text rather than a live
+		 * object.
+		 */
+		@Override
+		public String renderGroovy(GroovyRenderContext ctx) {
+			ctx.addImport("bdv.util.BdvHandle");
+			ctx.addImport("sc.fiji.bdvpg.viewer.bdv.BdvHandleHelper");
+			String os = ctx.requireScriptParam("ObjectService", "objectService");
+			return os + ".getObjects(BdvHandle.class).find { "
+					+ "BdvHandleHelper.getWindowTitle(it) == \"" + escape(title) + "\" }";
+		}
 
 		@Override
 		public void perform(GestureContext context) {
@@ -139,6 +159,10 @@ public final class BdvResolutions {
 				throw new IllegalStateException("No open BDV window titled '" + title + "'.");
 			}
 			return bdvh;
+		}
+
+		private static String escape(String s) {
+			return s.replace("\\", "\\\\").replace("\"", "\\\"");
 		}
 	}
 }

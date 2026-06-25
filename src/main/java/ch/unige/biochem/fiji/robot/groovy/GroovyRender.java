@@ -4,6 +4,7 @@ import org.scijava.command.Command;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Renders a command run as a self-contained, runnable Groovy snippet — the
@@ -63,6 +64,79 @@ public final class GroovyRender {
 		}
 		sb.append(").get()");
 		return sb.toString();
+	}
+
+	/**
+	 * Assemble a complete runnable script from pre-rendered argument expressions
+	 * and a {@link GroovyRenderContext}. This is the entry point the
+	 * {@code CmdExecutor} render path uses: each argument has already been turned
+	 * into a Groovy expression (a literal for self-describing values, or a
+	 * resolution's own {@code renderGroovy(ctx)} for object-valued inputs), and
+	 * {@code ctx} carries the imports and hoisted {@code #@…} parameters those
+	 * expressions need.
+	 *
+	 * <p>When {@code ctx} hoisted any {@code #@…} parameter the output is a full
+	 * SciJava script (parameter directives, {@code #@CommandService cs}, imports,
+	 * then the call); otherwise it stays a {@code cs}-assuming snippet — the same
+	 * shape {@link #renderRun} produces — so simple cases read unchanged.</p>
+	 *
+	 * @param command  the command being run
+	 * @param argExprs ordered {@code name → Groovy-expression} arguments
+	 * @param narrations optional {@code name → subtitle} trailing comments
+	 * @param ctx      the accumulator filled while rendering {@code argExprs}
+	 */
+	public static String assemble(Class<? extends Command> command,
+								  Map<String, String> argExprs,
+								  Map<String, String> narrations,
+								  GroovyRenderContext ctx) {
+		StringBuilder sb = new StringBuilder();
+		if (ctx.hasScriptParams()) {
+			for (String directive : ctx.directives()) sb.append(directive).append('\n');
+			sb.append("#@CommandService cs\n\n");
+		}
+		Set<String> imports = ctx.imports();
+		for (String imp : imports) sb.append("import ").append(imp).append('\n');
+		if (!imports.isEmpty()) sb.append('\n');
+
+		sb.append("cs.run(").append(command.getSimpleName()).append(".class, true");
+		if (!argExprs.isEmpty()) sb.append(",\n");
+
+		int idx = 0;
+		int count = argExprs.size();
+		for (Map.Entry<String, String> e : argExprs.entrySet()) {
+			boolean last = (++idx == count);
+			sb.append("    \"").append(e.getKey()).append("\", ").append(e.getValue());
+			if (!last) sb.append(',');
+			String narration = narrations.get(e.getKey());
+			if (narration != null) sb.append("  // ").append(oneLine(narration));
+			sb.append('\n');
+		}
+		sb.append(").get()");
+		return sb.toString();
+	}
+
+	/**
+	 * Context-aware variant of {@link #literal(Object)}: identical for primitives,
+	 * strings and {@code String[]}, but {@code File} / {@code File[]} are
+	 * <em>hoisted</em> to {@code #@File} script parameters via {@code ctx} (see
+	 * {@link GroovyRenderContext#hoistFile}) and rendered as the parameter
+	 * reference rather than an inline {@code new File("…")}.
+	 */
+	public static String literal(Object value, GroovyRenderContext ctx) {
+		if (value instanceof File) {
+			return ctx.hoistFile((File) value);
+		}
+		if (value instanceof File[]) {
+			File[] arr = (File[]) value;
+			ctx.addImport("java.io.File");
+			StringBuilder sb = new StringBuilder("new File[]{");
+			for (int i = 0; i < arr.length; i++) {
+				if (i > 0) sb.append(", ");
+				sb.append(ctx.hoistFile(arr[i]));
+			}
+			return sb.append('}').toString();
+		}
+		return literal(value);
 	}
 
 	/**

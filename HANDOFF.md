@@ -73,7 +73,11 @@ Done:
   `fromDialog`), `Launcher` / `Launchers` (`programmaticLauncher`),
   `LaunchRequest`, plus the `Gesture` / `GestureContext` capability (a resolution
   *optionally* implements `Gesture` for a visible action).
-- `robot/groovy/GroovyRender` — headless `cs.run(...)` snippet projection.
+- `robot/groovy/GroovyRender` (+ `GroovyRenderContext`) — headless `cs.run(...)`
+  projection: snippet form by default, full parameterised script (`#@File` /
+  `#@Service` + `#@CommandService cs`) when inputs hoist params. Object-valued
+  inputs render via the `GroovyRenderable` capability (root pkg), which renders
+  the carried spec instead of `value()` — see TODO #7.
 - `robot/core/` — `Ui`, `Timings`, `Inspector` (ported; used to locate the IJ1
   search bar). **Recording layer ported and decoupled (was placeholders):**
   `Timeline` (in-memory recorder + `timeline.json` v4 writer), `EventRecorder`
@@ -142,9 +146,13 @@ Done:
   pins the `WidgetDriver` extension-point contract) + `core/RecordingTimelineTest`
   (headless, 3 — pins the `timeline.json` v4 shape: steps/clips, comments,
   mouse/key events, intro/outro, the optional `ScriptSource` block, and the
-  disabled-Timeline no-write case) green here; `core/RecordingLayerDemo` is a
-  runnable `main` worked example (no JUnit) that wires the recording layer to
-  `GroovyRender` and prints/writes a full sample `timeline.json`;
+  disabled-Timeline no-write case) + `GroovyHoistRenderTest` (headless, 2 — pins
+  `#@File` hoisting + dedup) + `ij1/ActiveImageRenderTest` (headless, 1 — pins
+  the object-valued render with no image open) + `bdv/ActiveBdvRenderTest`
+  (headless, 1 — pins the by-title BDV lookup render) green here;
+  `core/RecordingLayerDemo` is a runnable `main` worked example (no JUnit) that
+  wires the recording layer to `GroovyRender` and prints/writes a full sample
+  `timeline.json`;
   `HarvesterWidgetsTest` (GUI, run locally — confirmed by the user); ij1 GUI tests
   (`ActiveImagePresetTest`, `SearchLauncherTest`) and bdv GUI tests
   (`ActiveBdvPresetTest`, `TreeLauncherTest`, `ActiveBdvSelectionTest`,
@@ -251,11 +259,40 @@ Still to port (from `…/docs/videos/bdv/`):
 - A GUI test for the `bdv/view/Bdv` window ops themselves (`setDisplayRange`
   etc.); currently `Bdv` is ported but only exercised by the demo, not a unit test.
 
-### 7. Groovy rendering: object-valued inputs + File hoisting
-`GroovyRender.literal` has a TODO fallback for unsupported types. Add a
-per-resolution rendering hook so object-valued resolutions render themselves
-(e.g. `selectActiveBdv` → a title lookup, `selectActiveImage` → `IJ.getImage()`).
-Port `#@File` hoisting from the original `GroovyScript`.
+### 7. Groovy rendering: object-valued inputs + File hoisting  ← DONE
+Landed:
+- **Per-resolution rendering hook** `GroovyRenderable` (root pkg) — an opt-in
+  capability mirroring `Gesture` (visible) / value (programmatic). A resolution
+  that implements it renders **its own carried spec**, and the renderer calls
+  `renderGroovy(ctx)` *instead of* `value()`. This is the key correctness point
+  (settled with the user): an object value like `SourceAndConverter[]` /
+  `ImagePlus` / `BdvHandle` is **not** reversible to the selector/title that
+  produced it (not bijective), so rendering must carry the original spec from
+  construction, never derive it from the resolved object. A consequence:
+  rendering a plan no longer forces the live object to exist —
+  `ActiveImageRenderTest` renders a `selectActiveImage` plan with **no image
+  open** (would throw if `value()` were called).
+- **`GroovyRenderContext`** (groovy pkg) — per-render accumulator for `import`s
+  and hoisted `#@…` script params, deduped. `GroovyRender.assemble(...)` emits a
+  full parameterised script (`#@File` / `#@Service` lines + `#@CommandService cs`
+  + imports) when anything was hoisted, else the original `cs`-assuming snippet.
+- **`File` hoisting**: `GroovyRender.literal(value, ctx)` lifts `File` / `File[]`
+  to `#@File` params (deduped by absolute path) instead of inline `new File(...)`
+  — `GroovyHoistRenderTest` pins distinct-vs-dedup.
+- Wired resolutions: `selectActiveImage(title)` → `WindowManager.getImage("title")`
+  + `import ij.WindowManager` (chose title-faithful over the old `IJ.getImage()`
+  sketch, per the carry-the-spec principle — flip in one line if "active image"
+  semantics are wanted); `selectActiveBdv(title)` → a by-title `find` over a
+  hoisted `#@ObjectService` (`ActiveBdvRenderTest`).
+- The launcher-contributed `"sources"` path already carried the spec string (the
+  tree path), so it needed no change — it was the precedent this generalises.
+
+Still open (nice-to-haves, not blocking):
+- Human-readable `#@File` labels (the original `GroovyScript.nameFile` preferred
+  names) — currently the label is the `fileN` var name.
+- The adapter that drives `Timeline.scriptSource` from a `CmdExecutor` plan
+  (per-step body = this render, preamble from the same `GroovyRenderContext`) —
+  the seam flagged in TODO #5; would auto-embed the script during a real demo.
 
 ### 8. Packaging / infra
 GitHub repo `BIOP/scijava-ui-robot`; CI runs headless tests only

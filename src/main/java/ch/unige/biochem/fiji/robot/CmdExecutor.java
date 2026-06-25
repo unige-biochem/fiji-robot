@@ -1,6 +1,7 @@
 package ch.unige.biochem.fiji.robot;
 
 import ch.unige.biochem.fiji.robot.groovy.GroovyRender;
+import ch.unige.biochem.fiji.robot.groovy.GroovyRenderContext;
 import org.scijava.Context;
 import org.scijava.command.Command;
 import org.scijava.module.Module;
@@ -116,8 +117,36 @@ public final class CmdExecutor {
 
 		@Override
 		public String renderGroovy() {
-			LaunchRequest request = mergedRequest();
-			return GroovyRender.renderRun(command, request.inputs(), request.narrations());
+			GroovyRenderContext ctx = new GroovyRenderContext();
+			ctx.addImport(command.getName());
+			Map<String, String> argExprs = new LinkedHashMap<>();
+			Map<String, String> narrations = new LinkedHashMap<>();
+
+			// Builder inputs, in declaration order. A GroovyRenderable resolution
+			// renders its own spec (and never has value() called on it — so a plan
+			// that selects the active image renders with no image open); everything
+			// else falls back to a literal of its value.
+			for (Map.Entry<String, InputResolution> e : resolutions.entrySet()) {
+				String name = e.getKey();
+				InputResolution r = e.getValue();
+				String expr = (r instanceof GroovyRenderable)
+						? ((GroovyRenderable) r).renderGroovy(ctx)
+						: GroovyRender.literal(r.value(), ctx);
+				argExprs.put(name, expr);
+				if (r.narration() != null) narrations.put(name, r.narration());
+			}
+
+			// Launcher-contributed inputs (e.g. a tree launcher's "sources" path):
+			// already plain, self-describing values — rendered as literals. Builder
+			// inputs win on a name clash, matching mergedRequest().
+			Map<String, Object> contributed = launcher.contributedInputs(renderRequest());
+			for (Map.Entry<String, Object> e : contributed.entrySet()) {
+				if (!argExprs.containsKey(e.getKey())) {
+					argExprs.put(e.getKey(), GroovyRender.literal(e.getValue(), ctx));
+				}
+			}
+
+			return GroovyRender.assemble(command, argExprs, narrations, ctx);
 		}
 
 		// --- internals --------------------------------------------------------
@@ -172,6 +201,31 @@ public final class CmdExecutor {
 			if (contributed.isEmpty()) return base;
 			for (Map.Entry<String, Object> e : contributed.entrySet()) {
 				inputs.putIfAbsent(e.getKey(), e.getValue());
+			}
+			return new LaunchRequest(context, command, inputs, narrations, preSets, dialogs);
+		}
+
+		/**
+		 * A {@link LaunchRequest} safe to build during rendering: it omits the
+		 * values of {@link GroovyRenderable} resolutions, so constructing it never
+		 * calls their {@link InputResolution#value()} (which may require live UI
+		 * state — an open image, a running BDV). It exists only so the launcher's
+		 * {@link Launcher#contributedInputs} can be consulted while rendering; that
+		 * contribution depends on the context and command, not on builder input
+		 * values, so the omission is harmless.
+		 */
+		private LaunchRequest renderRequest() {
+			Map<String, Object> inputs = new LinkedHashMap<>();
+			Map<String, String> narrations = new LinkedHashMap<>();
+			Map<String, PreSetResolution> preSets = new LinkedHashMap<>();
+			Map<String, DialogResolution> dialogs = new LinkedHashMap<>();
+			for (Map.Entry<String, InputResolution> e : resolutions.entrySet()) {
+				String name = e.getKey();
+				InputResolution r = e.getValue();
+				if (!(r instanceof GroovyRenderable)) inputs.put(name, r.value());
+				if (r.narration() != null) narrations.put(name, r.narration());
+				if (r instanceof PreSetResolution) preSets.put(name, (PreSetResolution) r);
+				else if (r instanceof DialogResolution) dialogs.put(name, (DialogResolution) r);
 			}
 			return new LaunchRequest(context, command, inputs, narrations, preSets, dialogs);
 		}
