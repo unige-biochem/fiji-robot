@@ -25,7 +25,7 @@ import java.util.List;
  * the BDV mirror of {@code Ij1Resolutions}. Static-import at the call site:
  *
  * <pre>
- * import static ch.epfl.biop.scijava.ui.robot.bdv.command.BdvResolutions.*;
+ * import static ch.unige.biochem.fiji.robot.bdv.command.BdvResolutions.*;
  *
  * CmdExecutor.of(context, MyBdvCommand.class)
  *     .preSet("bdvh", selectActiveBdv("BDV alpha"))

@@ -12,19 +12,19 @@
 		<relativePath />
 	</parent>
 
-	<groupId>ch.epfl.biop</groupId>
-	<artifactId>scijava-ui-robot</artifactId>
+	<groupId>ch.unige.biochem</groupId>
+	<artifactId>fiji-robot</artifactId>
 	<version>0.1.0-SNAPSHOT</version>
 
-	<name>SciJava UI Robot</name>
+	<name>Fiji Robot</name>
 	<description>A visible, recordable driver for SciJava commands — drives input
 		harvesting (and, later, java.awt.Robot gestures) so command runs can be
-		reproduced and recorded for tutorial videos. Developed by BIOP - EPFL.</description>
-	<url>https://biop.epfl.ch</url>
+		reproduced and recorded for tutorial videos.</description>
+	<url>https://www.unige.ch/sciences/biochimie/</url>
 	<inceptionYear>2026</inceptionYear>
 	<organization>
-		<name>BIOP</name>
-		<url>https://biop.epfl.ch</url>
+		<name>UNIGE-Biochemistry</name>
+		<url>https://www.unige.ch/sciences/biochimie/h</url>
 	</organization>
 	<licenses>
 		<license>
@@ -37,7 +37,7 @@
 		<developer>
 			<id>nicokiaru</id>
 			<name>Nicolas Chiaruttini</name>
-			<url>https://www.epfl.ch/research/facilities/ptbiop/staff/</url>
+			<url>https://www.unige.ch/sciences/biochimie</url>
 			<roles>
 				<role>founder</role>
 				<role>lead</role>
@@ -52,7 +52,7 @@
 	<contributors>
 		<contributor>
 			<name>Nicolas Chiaruttini</name>
-			<url>http://biop.epfl.ch/INFO_Facility.html</url>
+			<url>https://www.unige.ch/sciences/biochimie</url>
 			<roles><role>founder</role></roles>
 			<properties><id>NicoKiaru</id></properties>
 		</contributor>
@@ -66,15 +66,15 @@
 	</mailingLists>
 
 	<scm>
-		<connection>scm:git:https://github.com/BIOP/scijava-ui-robot</connection>
-		<developerConnection>scm:git:git@github.com:BIOP/scijava-ui-robot</developerConnection>
+		<connection>scm:git:https://github.com/unige-biochem/fiji-robot</connection>
+		<developerConnection>scm:git:git@github.com:unige-biochem/fiji-robot</developerConnection>
 		<tag>HEAD</tag>
-		<url>https://github.com/BIOP/scijava-ui-robot</url>
+		<url>https://github.com/unige-biochem/fiji-robot</url>
 	</scm>
 
 	<issueManagement>
 		<system>GitHub Issues</system>
-		<url>https://github.com/BIOP/scijava-ui-robot/issues</url>
+		<url>https://github.com/unige-biochem/fiji-robot/issues</url>
 	</issueManagement>
 
 	<ciManagement>
@@ -82,7 +82,7 @@
 	</ciManagement>
 
 	<properties>
-		<package-name>ch.epfl.biop.scijava.ui.robot</package-name>
+		<package-name>ch.unige.biochem.fiji.robot</package-name>
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.copyrightOwners>EPFL</license.copyrightOwners>
 	</properties>
@@ -111,7 +111,7 @@
 			<artifactId>scijava-ui-swing</artifactId>
 		</dependency>
 
-		<!-- ImageJ1 binding (package ch.epfl.biop.scijava.ui.robot.ij1 only).
+		<!-- ImageJ1 binding (package ch.unige.biochem.fiji.robot.ij1 only).
 		     Pulls in ImageJ1 (ij.IJ, ij.WindowManager, ij.ImagePlus) and the
 		     LegacyImagePreprocessor the active-image preset relies on. This is
 		     the ONLY dependency the core packages must never touch — keeping the
@@ -123,7 +123,7 @@
 		</dependency>
 
 		<!-- BigDataViewer-Playground binding (package
-		     ch.epfl.biop.scijava.ui.robot.bdv only). Provides the SourceService
+		     ch.unige.biochem.fiji.robot.bdv only). Provides the SourceService
 		     source tree the tree-launcher drives, the ActiveBdvPreprocessor the
 		     active-BDV preset relies on, BdvHandle, and the window helpers. Like
 		     imagej-legacy, this is quarantined to one package so a future module

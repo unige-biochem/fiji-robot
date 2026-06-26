@@ -1,6 +1,6 @@
-# SciJava UI Robot
+# Fiji Robot
 
-A visible, recordable driver for SciJava commands. The goal is to run a command
+A visible, recordable driver for SciJava/Fiji commands. The goal is to run a command
 the way a user would — establishing context, triggering it, filling its dialog —
 so the run can be both **reproduced headlessly** and **recorded** (cursor
 motion, subtitles, a machine-readable timeline, screenshots, screen-capture

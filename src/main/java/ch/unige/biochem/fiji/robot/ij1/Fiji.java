@@ -15,7 +15,7 @@ import java.util.Map;
 /**
  * Visible actions on the <em>already-running</em> ImageJ1 main frame.
  *
- * <p>This is the IJ1 half of {@code scijava-ui-robot}. It deliberately does not
+ * <p>This is the IJ1 half of {@code fiji-robot}. It deliberately does not
  * boot Fiji — the main code drives whatever legacy frame {@link IJ#getInstance()}
  * exposes; spinning one up (the {@code new ImageJ().ui().showUI()} dance, which
  * needs the heavyweight {@code net.imagej:imagej} gateway) is a test concern.</p>

@@ -7,7 +7,7 @@ package ch.unige.biochem.fiji.robot;
  * small declarative recipe:</p>
  *
  * <pre>
- * import static ch.epfl.biop.scijava.ui.robot.Resolutions.*;
+ * import static ch.unige.biochem.fiji.robot.Resolutions.*;
  *
  * CmdExecutor.of(context, MyCommand.class)
  *     .preSet("a-param", programmatic(value))

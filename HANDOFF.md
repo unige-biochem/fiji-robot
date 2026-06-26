@@ -1,4 +1,4 @@
-# scijava-ui-robot — handoff / roadmap
+# fiji-robot — handoff / roadmap
 
 Working notes for continuing this project in a fresh session. Read this first,
 then `README.md` for the user-facing shape.
@@ -45,7 +45,7 @@ unsafe by design; it's a video-making tool). bigdataviewer-playground needs
    decoupled. Semantic content (narration timing, step bodies, command list) is
    the plan projected into timeline shape — another projector, not a separate
    integration.
-6. **Package** `ch.epfl.biop.scijava.ui.robot` (BIOP-owned, not squatting
+6. **Package** `ch.unige.biochem.fiji.robot` (not squatting
    `org.scijava`). Change now if ever, it's cheap.
 7. **Mode switch is per-launch, no global flag.** The launcher choice *is* the
    mode: `programmaticLauncher()` runs headless, `searchLauncher(query)` runs
@@ -303,7 +303,7 @@ Still open (nice-to-haves, not blocking):
   now **done** — see `groovy/GroovyScript` under TODO #5.
 
 ### 8. Packaging / infra
-GitHub repo `BIOP/scijava-ui-robot`; CI runs headless tests only
+GitHub repo `unige-biochem/fiji-robot`; CI runs headless tests only
 (`-Dtest=CmdExecutorTest`); publish to `maven.scijava.org`. Decide multi-module
 (core + ij1 + bdv under one reactor) vs separate repos — leaning multi-module.
 

@@ -21,7 +21,7 @@ import java.awt.Point;
  * call site:
  *
  * <pre>
- * import static ch.epfl.biop.scijava.ui.robot.ij1.Ij1Resolutions.*;
+ * import static ch.unige.biochem.fiji.robot.ij1.Ij1Resolutions.*;
  *
  * CmdExecutor.of(context, MyImageCommand.class)
  *     .preSet("imp", selectActiveImage("blobs.gif"))
