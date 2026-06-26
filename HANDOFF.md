@@ -312,7 +312,16 @@ GitHub repo `BIOP/scijava-ui-robot`; CI runs headless tests only
 mvn clean install                       # compiles all; runs headless test
 mvn test -Dtest=CmdExecutorTest         # headless backbone
 mvn test -Dtest=HarvesterWidgetsTest    # GUI — local display required
+
+# Regenerate the worked example + committed sample asset (docs/sample-timeline.json):
+mvn -q test-compile exec:java -Dexec.classpathScope=test \
+    -Dexec.mainClass=ch.unige.biochem.fiji.robot.core.RecordingLayerDemo
 ```
+
+`README.md` carries the user-facing shape (the video pipeline, the extension
+points, per-binding usage). `docs/sample-timeline.json` is a committed sample of
+the primary output, refreshed by the demo above — keep it text-only (no binary
+clips/PNGs in git).
 
 ## Source of truth for ports
 Original toolkit: `ijp-imglib2bdvdemo-ij2/src/test/java/ch/epfl/biop/docs/videos/`

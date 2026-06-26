@@ -83,7 +83,9 @@ public class RecordingLayerDemo {
 				.preSet("sigma", programmatic(2.0d, "We pick a 2-pixel radius."))
 				.withLauncher(programmaticLauncher())
 				.postSet("name", fromDialog("blurred"))
-				.postSet("output", fromDialog(new File("results/blurred.tif")))
+				// Absolute, neutral path so the committed sample carries no personal
+				// home directory — File hoisting uses the absolute path verbatim.
+				.postSet("output", fromDialog(new File("/data/blurred.tif")))
 				.launch();
 		Timeline.mouseClickAt(420, 320, Collections.emptyList());  // OK button
 		Step.end();
@@ -101,6 +103,15 @@ public class RecordingLayerDemo {
 		String json = new String(Files.readAllBytes(timeline.toPath()), StandardCharsets.UTF_8);
 		System.out.println("Wrote " + timeline.getAbsolutePath() + "\n");
 		System.out.println(json);
+
+		// Refresh the committed sample asset so the repo always carries an
+		// up-to-date example of the output. Run from the project root
+		// (mvn exec:java does); skipped silently if that directory is unavailable.
+		File sample = new File("docs/sample-timeline.json");
+		if (sample.getParentFile().isDirectory() || sample.getParentFile().mkdirs()) {
+			Files.write(sample.toPath(), json.getBytes(StandardCharsets.UTF_8));
+			System.out.println("\nRefreshed " + sample.getPath());
+		}
 
 		context.dispose();
 	}

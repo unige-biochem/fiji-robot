@@ -1,0 +1,61 @@
+{
+  "version": 4,
+  "session": "RecordingLayerDemo",
+  "script": {
+    "language": "groovy",
+    "preamble": "#@File(label=\"file1\", value=\"C:\\\\data\\\\blurred.tif\") file1\n#@CommandService cs\n\nimport ch.unige.biochem.fiji.robot.core.RecordingLayerDemo$GaussianBlur"
+  },
+  "intro": {
+    "title": "Gaussian blur in Fiji",
+    "tagline": "Run a command from the search bar and inspect the result.",
+    "highlights": [
+      "Search bar",
+      "Harvester dialog",
+      "Result window"
+    ]
+  },
+  "recordingBounds": {"x":0,"y":0,"w":1536,"h":810},
+  "steps": [
+    {
+      "index": 1,
+      "slug": "apply-blur",
+      "clip": "001-apply-blur.mp4",
+      "description": "We run Gaussian Blur from the search bar.",
+      "script": {"body": "cs.run(GaussianBlur.class, true,\n    \"sigma\", 2.0d,  // We pick a 2-pixel radius.\n    \"name\", \"blurred\",\n    \"output\", file1\n).get()"},
+      "startedAt": "2026-06-26T06:35:57.423Z",
+      "comments": [
+        {"tMs":0,"endMs":0,"text":"Typing 'gaussian blur' into the search bar."},
+        {"tMs":0,"endMs":0,"text":"Setting sigma to 2 and choosing an output file."},
+        {"tMs":0,"endMs":298,"text":"Clicking OK to run."}
+      ],
+      "events": [
+        {"type":"mouse.click","tMs":0,"x":140,"y":70},
+        {"type":"mouse.click","tMs":0,"x":360,"y":240},
+        {"type":"key.press","tMs":0,"x":110,"y":797,"key":"2"},
+        {"type":"mouse.click","tMs":298,"x":420,"y":320}
+      ]
+    },
+    {
+      "index": 2,
+      "slug": "inspect-result",
+      "clip": "002-inspect-result.mp4",
+      "description": "We zoom into the result to compare with the original.",
+      "script": {"body": null, "note": "visualization-only — observe the viewers"},
+      "startedAt": "2026-06-26T06:35:57.721Z",
+      "comments": [],
+      "events": [
+        {"type":"mouse.wheel","tMs":0,"x":700,"y":400,"notches":-3}
+      ]
+    }
+  ],
+  "outro": {
+    "closing": "That's the whole workflow — try it on your own image.",
+    "commands": [
+      {"name":"Gaussian Blur","version":"1.54","sourceUrl":"https://imagej.net/ij/"}
+    ],
+    "links": [
+      "https://imagej.net/",
+      "https://forum.image.sc/"
+    ]
+  }
+}
