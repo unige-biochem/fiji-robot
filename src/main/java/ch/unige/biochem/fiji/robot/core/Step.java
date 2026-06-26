@@ -127,9 +127,12 @@ public class Step {
 	 * resulting subtitle will span that action.
 	 */
 	public static void say(String text) {
-		if (currentName == null) {
-			throw new IllegalStateException("Step.say(...) called with no open step — wrap it in begin/end.");
-		}
+		// Fired unconditionally by the widget drivers for per-parameter narration
+		// (see Harvester.driveDialog), so it must be safe outside a recorded demo:
+		// with no open step there is nothing to narrate, so no-op — the same
+		// "fire the hook, no-op when not recording" shape as Ui's gesture
+		// primitives calling Timeline.mouseClick() etc.
+		if (currentName == null) return;
 		Timeline.comment(text);
 	}
 

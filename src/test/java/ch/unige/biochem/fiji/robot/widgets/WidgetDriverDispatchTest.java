@@ -1,6 +1,7 @@
 package ch.unige.biochem.fiji.robot.widgets;
 
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.awt.Container;
@@ -43,7 +44,13 @@ public class WidgetDriverDispatchTest {
 		}
 	}
 
-	/** Remove anything a test registered, so the global registry can't leak between tests. */
+	/**
+	 * Clear the global registry both <em>before</em> and after each test, so a
+	 * test starts from a clean slate even when another class in the same JVM left
+	 * drivers behind (e.g. a BDV GUI test that called {@code BdvWidgets.register()}).
+	 * The empty-registry assertions then hold regardless of test ordering.
+	 */
+	@Before
 	@After
 	public void clearDrivers() {
 		for (WidgetDriver d : Harvester.registeredDrivers()) {

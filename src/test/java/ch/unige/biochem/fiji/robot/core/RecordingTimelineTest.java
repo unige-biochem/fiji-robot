@@ -156,4 +156,15 @@ public class RecordingTimelineTest {
 			Timeline.ENABLED = true;
 		}
 	}
+
+	/**
+	 * The widget drivers call {@link Step#say} unconditionally during any visible
+	 * command run, recorded or not — so it must be a safe no-op outside an open
+	 * step (regression guard: it used to throw, breaking the GUI launcher tests).
+	 */
+	@Test
+	public void say_outsideAnyStep_isNoOp() {
+		// No Step.begin — must not throw.
+		Step.say("nobody is recording this");
+	}
 }
