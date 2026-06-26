@@ -77,7 +77,10 @@ Done:
   projection: snippet form by default, full parameterised script (`#@File` /
   `#@Service` + `#@CommandService cs`) when inputs hoist params. Object-valued
   inputs render via the `GroovyRenderable` capability (root pkg), which renders
-  the carried spec instead of `value()` — see TODO #7.
+  the carried spec instead of `value()` — see TODO #7. `groovy/GroovyScript`
+  (implements `Timeline.ScriptSource`) is the adapter that auto-records each
+  `CmdExecutor.launch()` body into the timeline, keyed by the open `Step` — see
+  TODO #5.
 - `robot/core/` — `Ui`, `Timings`, `Inspector` (ported; used to locate the IJ1
   search bar). **Recording layer ported and decoupled (was placeholders):**
   `Timeline` (in-memory recorder + `timeline.json` v4 writer), `EventRecorder`
@@ -149,10 +152,12 @@ Done:
   disabled-Timeline no-write case) + `GroovyHoistRenderTest` (headless, 2 — pins
   `#@File` hoisting + dedup) + `ij1/ActiveImageRenderTest` (headless, 1 — pins
   the object-valued render with no image open) + `bdv/ActiveBdvRenderTest`
-  (headless, 1 — pins the by-title BDV lookup render) green here;
-  `core/RecordingLayerDemo` is a runnable `main` worked example (no JUnit) that
-  wires the recording layer to `GroovyRender` and prints/writes a full sample
-  `timeline.json`;
+  (headless, 1 — pins the by-title BDV lookup render) + `core/RecordingScriptAdapterTest`
+  (headless, 1 — pins the `GroovyScript` adapter: a launch inside a step embeds
+  its body + hoists a `#@File` into the shared preamble, command-free step stays
+  visualization-only) green here; `core/RecordingLayerDemo` is a runnable `main`
+  worked example (no JUnit) that installs a `GroovyScript` recorder and lets two
+  `CmdExecutor` launches auto-populate a full sample `timeline.json`;
   `HarvesterWidgetsTest` (GUI, run locally — confirmed by the user); ij1 GUI tests
   (`ActiveImagePresetTest`, `SearchLauncherTest`) and bdv GUI tests
   (`ActiveBdvPresetTest`, `TreeLauncherTest`, `ActiveBdvSelectionTest`,
@@ -216,14 +221,18 @@ Landed (decoupled + headless-testable — see "Current state"):
 example.
 
 Still to port / wire:
-- **`GroovyScript`** — the full `#@File`-hoisting script accumulator. Not
-  ported: the new repo renders Groovy via the plan-based `GroovyRender`
-  projector, not a step-accumulator, so `Timeline.ScriptSource` is the seam.
-  A small adapter that drives `Timeline.scriptSource` from a `CmdExecutor`
-  plan (per-step body = `renderRun`, preamble = imports + `#@File` hoist)
-  would auto-populate the embedded script during a real demo — currently a
-  demo wires the `ScriptSource` by hand (see `RecordingLayerDemo`). The
-  `#@File` hoisting (decision in TODO #7) lives here.
+- **`GroovyScript` adapter — DONE.** `groovy/GroovyScript` implements
+  `Timeline.ScriptSource` and is the adapter between the two halves: a
+  `CmdExecutor.launch()` inside an open `Step` auto-records its `cs.run(...)`
+  body (rendered via TODO #7's hook) into a shared `GroovyRenderContext`, keyed
+  by `Step.currentName()`. The shared context means imports and `#@File` /
+  `#@Service` params are hoisted once into the top-level `script.preamble`;
+  per-step `script.body` is just the call. A step with no run is left
+  visualization-only. Install with `new GroovyScript().install()`; the launch
+  hook is a no-op when nothing is installed (same "fire unconditionally" shape
+  as `Ui`→`Timeline`). `RecordingScriptAdapterTest` pins it; `RecordingLayerDemo`
+  now uses it (no hand-wired `ScriptSource`). Instance-based, not the original's
+  static accumulator — nothing to reset between sessions.
 - **`Layout`** (multi-window placement presets) and the **`Demo`** authoring
   facade (intro/outro + youtube-description.md emission) — not yet ported;
   port when a real multi-step video demo is assembled.
@@ -290,9 +299,8 @@ Landed:
 Still open (nice-to-haves, not blocking):
 - Human-readable `#@File` labels (the original `GroovyScript.nameFile` preferred
   names) — currently the label is the `fileN` var name.
-- The adapter that drives `Timeline.scriptSource` from a `CmdExecutor` plan
-  (per-step body = this render, preamble from the same `GroovyRenderContext`) —
-  the seam flagged in TODO #5; would auto-embed the script during a real demo.
+- The adapter that drives `Timeline.scriptSource` from a `CmdExecutor` plan is
+  now **done** — see `groovy/GroovyScript` under TODO #5.
 
 ### 8. Packaging / infra
 GitHub repo `BIOP/scijava-ui-robot`; CI runs headless tests only

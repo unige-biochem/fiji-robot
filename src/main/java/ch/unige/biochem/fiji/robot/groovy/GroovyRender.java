@@ -98,6 +98,21 @@ public final class GroovyRender {
 		for (String imp : imports) sb.append("import ").append(imp).append('\n');
 		if (!imports.isEmpty()) sb.append('\n');
 
+		sb.append(renderBody(command, argExprs, narrations));
+		return sb.toString();
+	}
+
+	/**
+	 * Render just the {@code cs.run(...).get()} call from pre-rendered argument
+	 * expressions — no imports, no {@code #@…} preamble. This is the per-step
+	 * {@code script.body} for {@code timeline.json}: the imports and hoisted
+	 * parameters the body relies on live once in the shared
+	 * {@link #timelinePreamble(GroovyRenderContext)}, not repeated per step.
+	 */
+	public static String renderBody(Class<? extends Command> command,
+									Map<String, String> argExprs,
+									Map<String, String> narrations) {
+		StringBuilder sb = new StringBuilder();
 		sb.append("cs.run(").append(command.getSimpleName()).append(".class, true");
 		if (!argExprs.isEmpty()) sb.append(",\n");
 
@@ -105,6 +120,8 @@ public final class GroovyRender {
 		int count = argExprs.size();
 		for (Map.Entry<String, String> e : argExprs.entrySet()) {
 			boolean last = (++idx == count);
+			// Order matters: the comma must precede any `//` so it isn't
+			// swallowed by Groovy's end-of-line comment.
 			sb.append("    \"").append(e.getKey()).append("\", ").append(e.getValue());
 			if (!last) sb.append(',');
 			String narration = narrations.get(e.getKey());
@@ -112,6 +129,31 @@ public final class GroovyRender {
 			sb.append('\n');
 		}
 		sb.append(").get()");
+		return sb.toString();
+	}
+
+	/**
+	 * The shared script preamble for an embedded {@code timeline.json} script:
+	 * the hoisted {@code #@…} parameter directives, the {@code #@CommandService cs}
+	 * declaration the per-step bodies rely on, and the accumulated imports. No
+	 * trailing newline. Unlike {@link #assemble}, this always declares
+	 * {@code #@CommandService cs} — the bodies are not self-contained, so the
+	 * preamble must establish {@code cs} for them.
+	 */
+	public static String timelinePreamble(GroovyRenderContext ctx) {
+		StringBuilder sb = new StringBuilder();
+		for (String directive : ctx.directives()) sb.append(directive).append('\n');
+		sb.append("#@CommandService cs");
+		Set<String> imports = ctx.imports();
+		if (!imports.isEmpty()) {
+			sb.append("\n\n");
+			boolean first = true;
+			for (String imp : imports) {
+				if (!first) sb.append('\n');
+				sb.append("import ").append(imp);
+				first = false;
+			}
+		}
 		return sb.toString();
 	}
 

@@ -2,6 +2,7 @@ package ch.unige.biochem.fiji.robot;
 
 import ch.unige.biochem.fiji.robot.groovy.GroovyRender;
 import ch.unige.biochem.fiji.robot.groovy.GroovyRenderContext;
+import ch.unige.biochem.fiji.robot.groovy.GroovyScript;
 import org.scijava.Context;
 import org.scijava.command.Command;
 import org.scijava.module.Module;
@@ -112,20 +113,35 @@ public final class CmdExecutor {
 
 		@Override
 		public Module launch() {
-			return launcher.launch(mergedRequest());
+			Module module = launcher.launch(mergedRequest());
+			recordScriptIfRecording();
+			return module;
 		}
 
 		@Override
 		public String renderGroovy() {
 			GroovyRenderContext ctx = new GroovyRenderContext();
 			ctx.addImport(command.getName());
-			Map<String, String> argExprs = new LinkedHashMap<>();
 			Map<String, String> narrations = new LinkedHashMap<>();
+			Map<String, String> argExprs = buildArgExprs(ctx, narrations);
+			return GroovyRender.assemble(command, argExprs, narrations, ctx);
+		}
 
-			// Builder inputs, in declaration order. A GroovyRenderable resolution
-			// renders its own spec (and never has value() called on it — so a plan
-			// that selects the active image renders with no image open); everything
-			// else falls back to a literal of its value.
+		/**
+		 * Render this run's argument expressions into {@code ctx} (collecting its
+		 * imports and hoisted {@code #@…} params), returning the ordered
+		 * {@code name → expression} map and filling {@code narrationsOut}.
+		 *
+		 * <p>A {@link GroovyRenderable} resolution renders its own carried spec and
+		 * is never asked for {@link InputResolution#value()} — so rendering works
+		 * with no live object present. Everything else renders a literal of its
+		 * value. Launcher-contributed inputs (e.g. a tree launcher's {@code
+		 * "sources"} path) are appended as literals; builder inputs win on a name
+		 * clash, matching {@link #mergedRequest()}.</p>
+		 */
+		private Map<String, String> buildArgExprs(GroovyRenderContext ctx,
+												  Map<String, String> narrationsOut) {
+			Map<String, String> argExprs = new LinkedHashMap<>();
 			for (Map.Entry<String, InputResolution> e : resolutions.entrySet()) {
 				String name = e.getKey();
 				InputResolution r = e.getValue();
@@ -133,20 +149,33 @@ public final class CmdExecutor {
 						? ((GroovyRenderable) r).renderGroovy(ctx)
 						: GroovyRender.literal(r.value(), ctx);
 				argExprs.put(name, expr);
-				if (r.narration() != null) narrations.put(name, r.narration());
+				if (r.narration() != null) narrationsOut.put(name, r.narration());
 			}
-
-			// Launcher-contributed inputs (e.g. a tree launcher's "sources" path):
-			// already plain, self-describing values — rendered as literals. Builder
-			// inputs win on a name clash, matching mergedRequest().
 			Map<String, Object> contributed = launcher.contributedInputs(renderRequest());
 			for (Map.Entry<String, Object> e : contributed.entrySet()) {
 				if (!argExprs.containsKey(e.getKey())) {
 					argExprs.put(e.getKey(), GroovyRender.literal(e.getValue(), ctx));
 				}
 			}
+			return argExprs;
+		}
 
-			return GroovyRender.assemble(command, argExprs, narrations, ctx);
+		/**
+		 * If a {@link GroovyScript} recorder is installed, render this run's body
+		 * into its shared context and file it under the open {@code Step}. A no-op
+		 * otherwise — mirroring how {@code Ui} fires its {@code Timeline} hooks
+		 * unconditionally and they no-op when nothing is recording. Called from
+		 * {@link #launch()} after the command has run, so a failed launch records
+		 * nothing.
+		 */
+		private void recordScriptIfRecording() {
+			GroovyScript recorder = GroovyScript.active();
+			if (recorder == null) return;
+			GroovyRenderContext ctx = recorder.context();
+			ctx.addImport(command.getName());
+			Map<String, String> narrations = new LinkedHashMap<>();
+			Map<String, String> argExprs = buildArgExprs(ctx, narrations);
+			recorder.recordBody(GroovyRender.renderBody(command, argExprs, narrations));
 		}
 
 		// --- internals --------------------------------------------------------

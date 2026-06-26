@@ -1,7 +1,10 @@
 package ch.unige.biochem.fiji.robot.core;
 
-import ch.unige.biochem.fiji.robot.groovy.GroovyRender;
+import ch.unige.biochem.fiji.robot.CmdExecutor;
+import ch.unige.biochem.fiji.robot.groovy.GroovyScript;
+import org.scijava.Context;
 import org.scijava.command.Command;
+import org.scijava.command.CommandService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
@@ -10,8 +13,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
+
+import static ch.unige.biochem.fiji.robot.Launchers.programmaticLauncher;
+import static ch.unige.biochem.fiji.robot.Resolutions.fromDialog;
+import static ch.unige.biochem.fiji.robot.Resolutions.programmatic;
 
 /**
  * Runnable, headless worked example of what a recorded demo emits — without a
@@ -20,21 +25,29 @@ import java.util.Map;
  * <pre>mvn -q test-compile exec:java -Dexec.classpathScope=test \
  *     -Dexec.mainClass=ch.unige.biochem.fiji.robot.core.RecordingLayerDemo</pre>
  *
- * or straight from an IDE. It opens an {@link Assets} session, brackets two
- * narrated {@link Step}s (simulating the gestures a visible run would emit), and
- * wires {@link Timeline}'s embedded reproduction {@code script} to
- * {@link GroovyRender}. The result — printed to stdout and written to
+ * or straight from an IDE. It installs a {@link GroovyScript} recorder, opens an
+ * {@link Assets} session, and brackets two narrated {@link Step}s. Inside a step
+ * it runs a command through a {@link CmdExecutor} (headless
+ * {@code programmaticLauncher()}) — and that {@code launch()} <em>auto-records</em>
+ * the run's {@code cs.run(...)} body into the timeline under the open step, with
+ * no extra call in the demo. The gestures a visible run would emit are simulated
+ * via the package-private {@code Timeline.*At} entry points.
+ *
+ * <p>The result — printed to stdout and written to
  * {@code target/video-assets/RecordingLayerDemo/timeline.json} — is the exact
  * artifact the downstream video pipeline consumes: chapter steps, narration
- * sub-steps, gesture events, and the headless Groovy equivalent.
+ * sub-steps, gesture events, and the headless Groovy reproduction (shared
+ * preamble + per-step bodies, with the command-free step left
+ * visualization-only).</p>
  */
 public class RecordingLayerDemo {
 
-	/** A stand-in command so the embedded script has something real to render. */
+	/** A stand-in command so the recorded script has something real to render. */
 	@Plugin(type = Command.class)
 	public static class GaussianBlur implements Command {
 		@Parameter double sigma;
 		@Parameter(label = "Result name") String name;
+		@Parameter File output;
 		@Override public void run() { /* demo only */ }
 	}
 
@@ -45,29 +58,13 @@ public class RecordingLayerDemo {
 		Step.AUTO_SNAP_END = false;
 		Step.AUTO_SNAP_MOMENTS = false;
 
+		Context context = new Context(CommandService.class);
 		File dir = Assets.session("RecordingLayerDemo");
 
-		// Per-step headless reproduction snippets, rendered by GroovyRender — the
-		// same projector the CmdExecutor uses. The recording layer stays unaware
-		// of how the script is produced: it only sees a ScriptSource.
-		Map<String, Object> inputs = new LinkedHashMap<>();
-		inputs.put("sigma", 2.0d);
-		inputs.put("name", "blurred");
-		String blurBody = GroovyRender.renderRun(GaussianBlur.class, inputs,
-				Collections.singletonMap("sigma", "We pick a 2-pixel radius."));
-
-		Map<String, String> bodies = new LinkedHashMap<>();
-		bodies.put("apply-blur", blurBody);
-		// "inspect-result" has no headless equivalent — it's visualization-only.
-
-		Timeline.scriptSource = new Timeline.ScriptSource() {
-			@Override public String preamble() {
-				return "#@CommandService cs\n\nimport " + GaussianBlur.class.getName();
-			}
-			@Override public String bodyForSlug(String slug) {
-				return bodies.get(slug);
-			}
-		};
+		// Install the script recorder. From here on, every CmdExecutor.launch()
+		// inside an open Step contributes its headless body to timeline.json.
+		GroovyScript.uninstall();   // clear any prior run's recorder
+		new GroovyScript().install();
 
 		Timeline.setIntro("Gaussian blur in Fiji",
 				"Run a command from the search bar and inspect the result.",
@@ -76,15 +73,23 @@ public class RecordingLayerDemo {
 		Step.begin("apply-blur", "We run Gaussian Blur from the search bar.");
 		Step.say("Typing 'gaussian blur' into the search bar.");
 		Timeline.mouseClickAt(140, 70, Collections.emptyList());   // click search result
-		Step.say("Setting sigma to 2 in the dialog.");
+		Step.say("Setting sigma to 2 and choosing an output file.");
 		Timeline.mouseClickAt(360, 240, Collections.emptyList());  // focus the field
 		Timeline.keyPressAt("2", Collections.emptyList());
 		Step.say("Clicking OK to run.");
+		// The launch auto-records "sigma", "name", "output" as the step's body —
+		// the File is hoisted to a #@File parameter in the shared preamble.
+		CmdExecutor.of(context, GaussianBlur.class)
+				.preSet("sigma", programmatic(2.0d, "We pick a 2-pixel radius."))
+				.withLauncher(programmaticLauncher())
+				.postSet("name", fromDialog("blurred"))
+				.postSet("output", fromDialog(new File("results/blurred.tif")))
+				.launch();
 		Timeline.mouseClickAt(420, 320, Collections.emptyList());  // OK button
 		Step.end();
 
 		Step.begin("inspect-result", "We zoom into the result to compare with the original.");
-		Timeline.mouseWheelAt(700, 400, -3, Collections.emptyList()); // zoom in
+		Timeline.mouseWheelAt(700, 400, -3, Collections.emptyList()); // no command → visualization-only
 		Step.end();
 
 		Timeline.setOutro("That's the whole workflow — try it on your own image.",
@@ -96,5 +101,7 @@ public class RecordingLayerDemo {
 		String json = new String(Files.readAllBytes(timeline.toPath()), StandardCharsets.UTF_8);
 		System.out.println("Wrote " + timeline.getAbsolutePath() + "\n");
 		System.out.println(json);
+
+		context.dispose();
 	}
 }
