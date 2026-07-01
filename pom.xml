@@ -28,7 +28,8 @@
 	</organization>
 	<licenses>
 		<license>
-			<name>Simplified BSD License</name>
+			<name>MIT License</name>
+			<url>https://opensource.org/licenses/MIT</url>
 			<distribution>repo</distribution>
 		</license>
 	</licenses>
@@ -83,8 +84,8 @@
 
 	<properties>
 		<package-name>ch.unige.biochem.fiji.robot</package-name>
-		<license.licenseName>bsd_2</license.licenseName>
-		<license.copyrightOwners>EPFL</license.copyrightOwners>
+		<license.licenseName>mit</license.licenseName>
+		<license.copyrightOwners>University of Geneva, Department of Biochemistry</license.copyrightOwners>
 	</properties>
 
 	<repositories>
