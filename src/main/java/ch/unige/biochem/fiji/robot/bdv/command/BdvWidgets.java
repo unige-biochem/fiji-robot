@@ -30,9 +30,11 @@ import java.awt.Point;
  *       ({@code SourceAndConverter}) and {@code SwingSourceListWidget}
  *       ({@code SourceAndConverter[]}). A {@code JTree} with no companion
  *       {@code JList}. The {@code String} value is a {@code ">"}-delimited tree
- *       path (including the {@code "Sources"} root). Aiming at a leaf selects one
- *       source; aiming at a parent selects every descendant source (the widget's
- *       own {@code getValue()} recursion) — that's the multi-source case.</li>
+ *       path <em>relative to the {@code "Sources"} root</em> (the root is prepended
+ *       automatically, but a fully-rooted {@code "Sources>..."} path is accepted
+ *       too). Aiming at a leaf selects one source; aiming at a parent selects every
+ *       descendant source (the widget's own {@code getValue()} recursion) — that's
+ *       the multi-source case.</li>
  *   <li><b>Sorted source list</b> — {@code SwingSourceSortedListWidget}, the
  *       {@code style="sorted"} variant of the {@code SourceAndConverter[]}
  *       widget. A {@code JTree} paired with a destination {@code JList}. Navigates
@@ -53,6 +55,27 @@ import java.awt.Point;
 public final class BdvWidgets {
 
 	private BdvWidgets() {}
+
+	/** The root node of the BDV-Playground source tree; dialog paths are relative to it. */
+	private static final String SOURCE_TREE_ROOT = "Sources";
+
+	/**
+	 * Prepend the {@code "Sources"} root to a dialog-supplied source path unless it
+	 * is already rooted. Source-widget values in a dialog are given <em>relative to
+	 * the tree root</em> (e.g. {@code "ZeissLLS7Demo"} or {@code "Other Sources"}),
+	 * matching the root-relative convention of the tree launchers
+	 * ({@code BdvLaunchers.treeLauncher}); the generic {@link Tree} navigator wants
+	 * the full path including the root, so we add it here. A value that already
+	 * starts with the root is passed through unchanged (idempotent), so callers that
+	 * still supply the full {@code "Sources>..."} path keep working.
+	 */
+	private static String rootedPath(Object value) {
+		String path = String.valueOf(value);
+		if (path.equals(SOURCE_TREE_ROOT) || path.startsWith(SOURCE_TREE_ROOT + ">")) {
+			return path;
+		}
+		return SOURCE_TREE_ROOT + ">" + path;
+	}
 
 	private static final WidgetDriver SOURCE_TREE = new SourceTreeDriver();
 	private static final WidgetDriver SORTED_LIST = new SourceSortedListDriver();
@@ -81,8 +104,9 @@ public final class BdvWidgets {
 
 	/**
 	 * {@code SwingSourceWidget} / {@code SwingSourceListWidget}: a {@code JTree}
-	 * with no companion {@code JList}. The {@code String} value is the full
-	 * {@code ">"}-path; {@link Tree#selectPath} navigates and single-clicks it.
+	 * with no companion {@code JList}. The {@code String} value is a {@code ">"}-path
+	 * relative to the {@code "Sources"} root ({@link #rootedPath} adds the root);
+	 * {@link Tree#selectPath} navigates and single-clicks it.
 	 */
 	private static final class SourceTreeDriver implements WidgetDriver {
 		@Override
@@ -95,7 +119,7 @@ public final class BdvWidgets {
 		@Override
 		public void fill(Container inputContainer, Object value) {
 			JTree tree = Widgets.firstOrNull(inputContainer, JTree.class);
-			Tree.selectPath(tree, String.valueOf(value));
+			Tree.selectPath(tree, rootedPath(value));
 		}
 	}
 
@@ -127,7 +151,7 @@ public final class BdvWidgets {
 		public void fill(Container inputContainer, Object value) {
 			JTree tree = Widgets.firstOrNull(inputContainer, JTree.class);
 			JList<?> list = Widgets.firstOrNull(inputContainer, JList.class);
-			TreePath target = Tree.navigateAndExpand(tree, String.valueOf(value));
+			TreePath target = Tree.navigateAndExpand(tree, rootedPath(value));
 			Point src = Tree.rowScreenCenter(tree, target);
 			if (!list.isShowing()) {
 				throw new IllegalStateException("Sorted-list drop target JList is not on screen");
