@@ -326,10 +326,12 @@ the exclusion locally. **Add a new GUI test → add it to that exclude list.**
 Still open: publishing to `maven.scijava.org`. The `unige-biochem` org already
 supplies `MAVEN_USER` / `MAVEN_PASS`, so `ci-build.sh` passed its deployment
 checks and tried to push a snapshot on the first green build — and got **401**
-from `maven.scijava.org` for `ch/unige/biochem/fiji-robot`. Until those
-credentials are sorted out (and snapshot publishing is actually wanted),
-`build-main.yml` sets `NO_DEPLOY: true`, so CI builds and tests without
-deploying. Remove that line to turn publishing on. And the multi-module question (core + ij1
+from `maven.scijava.org` for `ch/unige/biochem/fiji-robot`. Note this is **not
+necessarily a credentials problem**: maven.scijava.org was down at the time
+(community edition, too many connections), so the 401 may simply be the outage.
+Until publishing is actually wanted, `build-main.yml` sets `NO_DEPLOY: true`, so
+CI builds and tests without deploying. Remove that line to turn publishing on —
+and retry before assuming the secrets are wrong. And the multi-module question (core + ij1
 + bdv under one reactor) vs separate repos — leaning multi-module.
 
 ## How to build / test
