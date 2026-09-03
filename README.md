@@ -259,7 +259,11 @@ mvn test -Dtest=SourceWidgetsTest            # bdv source widgets, end to end
 
 The GUI tests synthesize real mouse / keyboard events (and boot a full Fiji), so
 they are meant to be run locally, not in headless CI. Run one GUI test class per
-JVM — each boots its own ImageJ gateway.
+JVM — each boots its own ImageJ gateway. They are listed under
+`maven-surefire-plugin/excludes` in `pom.xml`, so a bare `mvn test` runs the
+headless set only; the explicit `-Dtest=` above overrides that exclusion. GitHub
+Actions builds `main` and every PR with the standard SciJava CI scripts
+(`.github/build.sh`), which is exactly that headless set.
 
 ## Links
 

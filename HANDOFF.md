@@ -313,16 +313,28 @@ Still open (nice-to-haves, not blocking):
 - The adapter that drives `Timeline.scriptSource` from a `CmdExecutor` plan is
   now **done** — see `groovy/GroovyScript` under TODO #5.
 
-### 8. Packaging / infra
-GitHub repo `unige-biochem/fiji-robot`; CI runs headless tests only
-(`-Dtest=CmdExecutorTest`); publish to `maven.scijava.org`. Decide multi-module
-(core + ij1 + bdv under one reactor) vs separate repos — leaning multi-module.
+### 8. Packaging / infra  ← REPO + CI DONE
+Done: the GitHub repo is `unige-biochem/fiji-robot` (public, MIT), `origin`
+points at it, and CI runs on `main` + PRs via the standard SciJava scripts
+(`.github/workflows/build-main.yml` / `build-pr.yml` → `.github/setup.sh` /
+`build.sh`, which curl `ci-setup-github-actions.sh` / `ci-build.sh`). The
+headless/GUI split is enforced in `pom.xml`: the eight GUI test classes are
+listed under `maven-surefire-plugin/excludes`, so a bare `mvn test` (what CI
+runs) executes only the headless set, and `-Dtest=BdvViewTest` still overrides
+the exclusion locally. **Add a new GUI test → add it to that exclude list.**
+
+Still open: publishing to `maven.scijava.org` needs the `MAVEN_USER` /
+`MAVEN_PASS` (and GPG) secrets on the repo — until they exist `ci-build.sh`
+builds and tests but does not deploy. And the multi-module question (core + ij1
++ bdv under one reactor) vs separate repos — leaning multi-module.
 
 ## How to build / test
 ```bash
-mvn clean install                       # compiles all; runs headless test
+mvn clean install                       # compiles all; runs the headless tests
+mvn test                                # the headless set only (what CI runs)
 mvn test -Dtest=CmdExecutorTest         # headless backbone
-mvn test -Dtest=HarvesterWidgetsTest    # GUI — local display required
+mvn test -Dtest=HarvesterWidgetsTest    # GUI — local display required; the
+                                        # -Dtest= overrides the pom exclusion
 
 # Regenerate the worked example + committed sample asset (docs/sample-timeline.json):
 mvn -q test-compile exec:java -Dexec.classpathScope=test \
