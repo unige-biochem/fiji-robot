@@ -15,7 +15,7 @@ package ch.unige.biochem.fiji.robot.core;
  */
 public class Timings {
 
-	/** Multiplier on every {@link #scaled(long)} call. >1 = faster, <1 = slower. */
+	/** Multiplier on every {@link #scaled(long)} call. &gt;1 = faster, &lt;1 = slower. */
 	public static double GLOBAL_SPEED = 0.7;
 
 	// ===== Mouse motion (scaled) ==================================================

@@ -53,7 +53,7 @@ public final class BdvResolutions {
 	 * identified by title, with a narration subtitle.
 	 *
 	 * <p>The exact BDV counterpart of {@code Ij1Resolutions.selectActiveImage}.
-	 * In the headless ({@code programmaticLauncher()}) projection, {@link #value()}
+	 * In the headless ({@code programmaticLauncher()}) projection, {@link PreSetResolution#value()}
 	 * looks the {@link BdvHandle} up by title and passes it straight to
 	 * {@code cs.run(...)}. In a visible projection the value is <em>not</em>
 	 * passed; instead the {@linkplain Gesture pre-launch gesture} activates the

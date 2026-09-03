@@ -49,7 +49,7 @@ public final class Ij1Resolutions {
 	 * identified by window title, with a narration subtitle.
 	 *
 	 * <p>This is the IJ1 incarnation of the two-phase model. In the headless
-	 * ({@code programmaticLauncher()}) projection, {@link #value()} resolves the
+	 * ({@code programmaticLauncher()}) projection, {@link PreSetResolution#value()} resolves the
 	 * {@link ImagePlus} by title and it is passed straight to {@code cs.run(...)}.
 	 * In the visible ({@code searchLauncher(...)}) projection, the value is
 	 * <em>not</em> passed; instead the {@linkplain Gesture pre-launch gesture}
