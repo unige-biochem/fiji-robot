@@ -68,10 +68,14 @@ Each `Step.begin … end` pair writes three artifacts into
 - **`timeline.json`** — the machine-readable record (`core.Timeline`): chapter
   titles, narration sub-steps (`Step.say`), every cursor/key gesture with timing
   (emitted by `core.Ui` for Robot actions and captured by `core.EventRecorder`
-  for manual ones), an optional intro/outro card, and the **embedded
-  headless-equivalent Groovy script** (top-level `script.preamble` +
-  per-step `script.body`, contributed automatically by each `launch()` via
-  `groovy.GroovyScript`).
+  for manual ones), **camera focus regions** (`focus.window` / `focus.dialog` /
+  `focus.clear` — the screen rect the downstream renderer should frame with its
+  auto-zoom; emitted automatically by the frame-placement helpers, the
+  harvester dialog drive and the BDV view drivers, or explicitly via
+  `Ui.focus(window)` / `Ui.focusClear()` for passive holds), an optional
+  intro/outro card, and the **embedded headless-equivalent Groovy script**
+  (top-level `script.preamble` + per-step `script.body`, contributed
+  automatically by each `launch()` via `groovy.GroovyScript`).
 - **`NNN-step.png`** — key-moment screenshots (`core.Screenshotter`).
 
 A downstream video pipeline (outside this repo) consumes `timeline.json` + the

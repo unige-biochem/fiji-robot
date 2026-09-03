@@ -168,6 +168,17 @@ Done:
   `VoronoiSourceCreator` (no Bio-Formats, no download — see `BdvTestSources`) and
   derives expected tree paths / leaf counts from the live model instead of
   hardcoding them.
+- **Camera focus regions** (`focus.window` / `focus.dialog` / `focus.clear`
+  events in `timeline.json`; additive, so still version 4): the driving side
+  records *where the interesting content is* — a window's / dialog's logical
+  screen rect plus its title — so the downstream renderer frames it with its
+  auto-zoom instead of inferring attention from click positions. Emitted
+  automatically by `Ui.placeFrame` / `dragFrame` / `resizeFrame` /
+  `waitForFrame`, the `Harvester` dialog drive (clear on OK), window
+  close/minimize (clear), and the `bdv.view.Bdv` ops; public API
+  `Ui.focus(Window)` / `Ui.focusClear()` for demo scripts (e.g. point the
+  camera at a viewer during a passive streaming hold). Pinned by
+  `RecordingTimelineTest`; sample in `docs/sample-timeline.json`.
 
 ## TODO (roughly in priority order)
 

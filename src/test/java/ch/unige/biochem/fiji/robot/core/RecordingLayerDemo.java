@@ -74,6 +74,9 @@ public class RecordingLayerDemo {
 		Step.say("Typing 'gaussian blur' into the search bar.");
 		Timeline.mouseClickAt(140, 70, Collections.emptyList());   // click search result
 		Step.say("Setting sigma to 2 and choosing an output file.");
+		// Camera focus a visible run would emit when the harvester dialog opens
+		// (Ui.focus): the renderer frames this rect until the next focus event.
+		Timeline.focusDialogAt("Gaussian Blur", 320, 40, 420, 300);
 		Timeline.mouseClickAt(360, 240, Collections.emptyList());  // focus the field
 		Timeline.keyPressAt("2", Collections.emptyList());
 		Step.say("Clicking OK to run.");
@@ -88,9 +91,12 @@ public class RecordingLayerDemo {
 				.postSet("output", fromDialog(new File("/data/blurred.tif")))
 				.launch();
 		Timeline.mouseClickAt(420, 320, Collections.emptyList());  // OK button
+		Timeline.focusClear();                                     // dialog dismissed
 		Step.end();
 
 		Step.begin("inspect-result", "We zoom into the result to compare with the original.");
+		// The result window appearing (Ui.waitForFrame) re-points the camera.
+		Timeline.focusWindowAt("blurred", 500, 120, 640, 520);
 		Timeline.mouseWheelAt(700, 400, -3, Collections.emptyList()); // no command → visualization-only
 		Step.end();
 

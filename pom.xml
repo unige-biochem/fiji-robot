@@ -14,7 +14,7 @@
 
 	<groupId>ch.unige.biochem</groupId>
 	<artifactId>fiji-robot</artifactId>
-	<version>0.1.0-SNAPSHOT</version>
+	<version>0.1.1-SNAPSHOT</version>
 
 	<name>Fiji Robot</name>
 	<description>A visible, recordable driver for SciJava commands — drives input

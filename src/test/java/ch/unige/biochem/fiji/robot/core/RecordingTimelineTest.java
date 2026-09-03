@@ -59,9 +59,14 @@ public class RecordingTimelineTest {
 		Step.say("Typing the command name into the search bar.");
 		// Gestures a visible run would emit from Ui.click()/Ui.drag()/etc.
 		Timeline.mouseClickAt(120, 80, Collections.emptyList());
+		// Camera focus regions a visible run would emit from Ui.focus()/focusClear()
+		// (frame placement, harvester dialog drive).
+		Timeline.focusDialogAt("Show Sources", 300, 40, 420, 260);
 		Step.say("Dragging the tree below the main window.");
 		Timeline.mouseDragAt(200, 200, 200, 600, 40,
 				Collections.singletonList("shift"), null);
+		Timeline.focusClear();
+		Timeline.focusWindowAt("BDV Sources", 20, 120, 450, 600);
 		Step.end();
 
 		Step.begin("set-timepoint", "We step the viewer to a later timepoint.");
@@ -111,6 +116,13 @@ public class RecordingTimelineTest {
 		assertTrue(json, json.contains("\"type\":\"key.press\""));
 		assertTrue(json, json.contains("\"key\":\"Right\""));
 		assertTrue(json, json.contains("\"modifiers\":[\"ctrl\"]"));
+
+		// Focus regions: rect (x/y + w/h) + label, and the clear marker.
+		assertTrue(json, json.contains("\"type\":\"focus.dialog\""));
+		assertTrue(json, json.contains("\"x\":300,\"y\":40,\"w\":420,\"h\":260,\"label\":\"Show Sources\""));
+		assertTrue(json, json.contains("\"type\":\"focus.window\""));
+		assertTrue(json, json.contains("\"label\":\"BDV Sources\""));
+		assertTrue(json, json.contains("\"type\":\"focus.clear\""));
 
 		// Outro
 		assertTrue(json, json.contains("\"closing\": \"Thanks for watching!\""));

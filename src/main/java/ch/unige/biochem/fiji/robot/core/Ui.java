@@ -251,7 +251,11 @@ public class Ui {
 		long deadline = System.currentTimeMillis() + timeoutMs;
 		while (System.currentTimeMillis() < deadline) {
 			Frame f = findFrame(titleSubstring);
-			if (f != null) return f;
+			if (f != null) {
+				// A window we waited for is where the action is — point the camera.
+				focus(f);
+				return f;
+			}
 			rawPause(Timings.FRAME_POLL_INTERVAL_MS);
 		}
 		return null;
@@ -309,6 +313,42 @@ public class Ui {
 		placeFrame(frame, DEFAULT_FRAME_X, DEFAULT_FRAME_Y);
 	}
 
+	// ===== Camera focus regions ===================================================
+
+	/**
+	 * Record the window's current bounds as the step's camera focus region: a
+	 * {@code focus.window} (or {@code focus.dialog} for a {@link Dialog}) event
+	 * in {@code timeline.json}, telling the downstream video renderer "frame
+	 * this rect from now on" — until the step's next focus event or
+	 * {@link #focusClear()}. The frame-placement helpers ({@code placeFrame} /
+	 * {@code dragFrame} / {@code resizeFrame} / {@code waitForFrame}) and the
+	 * harvester call this automatically; call it directly from a demo script to
+	 * point the camera at a window during a passive hold (e.g. while a viewer
+	 * streams in its tiles). No-op outside an open {@link Step}, when
+	 * {@link Timeline} is disabled, or when the window isn't showing.
+	 */
+	public static void focus(Window window) {
+		if (window == null || !window.isShowing()) return;
+		Rectangle b = window.getBounds();
+		String title = window instanceof Frame ? ((Frame) window).getTitle()
+				: window instanceof Dialog ? ((Dialog) window).getTitle()
+				: null;
+		if (window instanceof Dialog) {
+			Timeline.focusDialogAt(title, b.x, b.y, b.width, b.height);
+		} else {
+			Timeline.focusWindowAt(title, b.x, b.y, b.width, b.height);
+		}
+	}
+
+	/**
+	 * Release the camera focus back to the full recorded frame (a
+	 * {@code focus.clear} event) — emitted automatically when a driven dialog
+	 * is dismissed or a window is closed / minimized.
+	 */
+	public static void focusClear() {
+		Timeline.focusClear();
+	}
+
 	/**
 	 * Visibly moves the cursor to the minimize button of the given frame's
 	 * title bar (Windows-style: leftmost of the three top-right buttons) and
@@ -318,6 +358,7 @@ public class Ui {
 	public static void minimizeWithMouse(Frame frame) {
 		if (FAST_MODE) {
 			runOnEdt(() -> frame.setExtendedState(frame.getExtendedState() | Frame.ICONIFIED));
+			focusClear();
 			return;
 		}
 		Insets insets = frame.getInsets();
@@ -329,6 +370,7 @@ public class Ui {
 		moveTo(x, y);
 		pause(Timings.PAUSE_AFTER_MOVE_MS);
 		click();
+		focusClear();
 	}
 
 	/**
@@ -340,6 +382,7 @@ public class Ui {
 		if (FAST_MODE) {
 			runOnEdt(() -> Toolkit.getDefaultToolkit().getSystemEventQueue()
 					.postEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING)));
+			focusClear();
 			return;
 		}
 		Insets insets = frame.getInsets();
@@ -351,6 +394,7 @@ public class Ui {
 		moveTo(x, y);
 		pause(Timings.PAUSE_AFTER_MOVE_MS);
 		click();
+		focusClear();
 	}
 
 	/**
@@ -366,6 +410,7 @@ public class Ui {
 
 		if (FAST_MODE) {
 			runOnEdt(() -> window.setLocation(newAbsX, newAbsY));
+			focus(window);
 			return;
 		}
 
@@ -380,6 +425,7 @@ public class Ui {
 		int endY   = newAbsY + grabOffsetY;
 
 		drag(startX, startY, endX, endY);
+		focus(window);
 	}
 
 	/**
@@ -390,6 +436,7 @@ public class Ui {
 	public static void resizeFrame(Frame frame, int width, int height) {
 		if (FAST_MODE) {
 			runOnEdt(() -> frame.setSize(width, height));
+			focus(frame);
 			return;
 		}
 		// If the current bottom-right corner sits outside the screen's usable
@@ -403,6 +450,7 @@ public class Ui {
 		int endY   = frame.getY() + height - 1;
 
 		drag(startX, startY, endX, endY);
+		focus(frame);
 	}
 
 	/**
@@ -587,6 +635,7 @@ public class Ui {
 			frame.toFront();
 			frame.requestFocus();
 		});
+		focus(frame);
 	}
 
 	/**

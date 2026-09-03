@@ -41,10 +41,21 @@ import java.util.List;
  * {@code clip} is the mp4 filename so the consumer matches by name.
  * {@code description} is the chapter-title text; {@code comments[]} carries the
  * narration sub-steps. Event {@code type} is namespaced ({@code mouse.*} /
- * {@code key.*}) so other categories can be added later without a format break
- * — {@code version} is {@code 4}. Drag events may carry an optional
- * {@code path} array of downsampled intermediate samples (see
+ * {@code key.*} / {@code focus.*}) so other categories can be added later
+ * without a format break — {@code version} is {@code 4}. Drag events may carry
+ * an optional {@code path} array of downsampled intermediate samples (see
  * {@link EventRecorder#CAPTURE_DRAG_PATH}).</p>
+ *
+ * <p><b>Focus events.</b> {@code focus.window} / {@code focus.dialog} carry a
+ * screen rectangle ({@code x}/{@code y}/{@code w}/{@code h}, logical AWT
+ * pixels — the same space as mouse coordinates) plus an optional
+ * {@code label} (the window title): "from this moment, the interesting
+ * content is this region". The downstream renderer frames the region with its
+ * auto-zoom camera until the next focus event of the step; {@code focus.clear}
+ * releases the camera back to the full frame. Emitted by {@link Ui}'s frame
+ * placement helpers and by the harvester when it starts driving a dialog —
+ * ground truth from the driving side, so the renderer never has to infer
+ * attention from click positions.</p>
  *
  * <p>The file is rewritten from the in-memory step list on every
  * {@link #endStep()} and from a JVM shutdown hook, so a crash mid-script still
@@ -134,13 +145,16 @@ public class Timeline {
 	}
 
 	/**
-	 * A single input gesture. {@code endX/endY} non-null for drags,
-	 * {@code notches} for the wheel, {@code points} for the count of
+	 * A single input gesture or focus region. {@code endX/endY} non-null for
+	 * drags, {@code notches} for the wheel, {@code points} for the count of
 	 * {@code MOUSE_DRAGGED} samples captured between press and release (only set
 	 * by {@link EventRecorder}). {@code path} is the optional downsampled
 	 * polyline of those samples. {@code modifiers} is the list of keyboard
 	 * modifiers held at event time. {@code key} carries the human-readable key
-	 * name for {@code key.*} events; null on mouse events.
+	 * name for {@code key.*} events; null on mouse events. {@code w}/{@code h}
+	 * and {@code label} are set only on {@code focus.*} events — there
+	 * {@code x}/{@code y} is the region's top-left corner rather than a cursor
+	 * position.
 	 */
 	private static final class Evt {
 		final String type;
@@ -150,9 +164,12 @@ public class Timeline {
 		final List<String> modifiers;
 		final String key;
 		final List<int[]> path;
+		final Integer w, h;
+		final String label;
 		Evt(String type, long wallMs, int x, int y,
 			Integer endX, Integer endY, Integer notches, Integer points,
-			List<String> modifiers, String key, List<int[]> path) {
+			List<String> modifiers, String key, List<int[]> path,
+			Integer w, Integer h, String label) {
 			this.type = type;
 			this.wallMs = wallMs;
 			this.x = x;
@@ -164,6 +181,9 @@ public class Timeline {
 			this.modifiers = modifiers;
 			this.key = key;
 			this.path = path;
+			this.w = w;
+			this.h = h;
+			this.label = label;
 		}
 	}
 
@@ -317,6 +337,36 @@ public class Timeline {
 				modifiers, null, path);
 	}
 
+	// --- Focus regions: "the interesting content is this screen rect" ------
+
+	/**
+	 * Record a {@code focus.window} region: from now until the step's next
+	 * focus event, the camera should frame this window. {@code x}/{@code y}/
+	 * {@code w}/{@code h} are the window's logical AWT screen bounds;
+	 * {@code label} is its title (may be null).
+	 */
+	static void focusWindowAt(String label, int x, int y, int w, int h) {
+		addFocus("focus.window", label, x, y, w, h);
+	}
+
+	/** {@code focus.dialog} twin of {@link #focusWindowAt} — a harvester dialog being driven. */
+	static void focusDialogAt(String label, int x, int y, int w, int h) {
+		addFocus("focus.dialog", label, x, y, w, h);
+	}
+
+	/** Release the camera back to the full recorded frame. */
+	static void focusClear() {
+		if (!ENABLED || current == null) return;
+		current.events.add(new Evt("focus.clear", System.currentTimeMillis(),
+				0, 0, null, null, null, null, null, null, null, null, null, null));
+	}
+
+	private static void addFocus(String type, String label, int x, int y, int w, int h) {
+		if (!ENABLED || current == null) return;
+		current.events.add(new Evt(type, System.currentTimeMillis(),
+				x, y, null, null, null, null, null, null, null, w, h, label));
+	}
+
 	/**
 	 * Record a key press captured by {@link EventRecorder}. {@code key} is the
 	 * human-readable name (e.g. {@code "Right"}, {@code "X"}, {@code "F2"}); the
@@ -359,7 +409,8 @@ public class Timeline {
 								 List<int[]> path) {
 		if (!ENABLED || current == null) return;
 		current.events.add(new Evt(type, System.currentTimeMillis(),
-				x, y, endX, endY, notches, points, modifiers, key, path));
+				x, y, endX, endY, notches, points, modifiers, key, path,
+				null, null, null));
 	}
 
 	private static void flushPending(long endWallMs) {
@@ -442,6 +493,12 @@ public class Timeline {
 					.append(",\"tMs\":").append(t)
 					.append(",\"x\":").append(ev.x)
 					.append(",\"y\":").append(ev.y);
+			if (ev.w != null) {
+				sb.append(",\"w\":").append(ev.w).append(",\"h\":").append(ev.h);
+			}
+			if (ev.label != null) {
+				sb.append(",\"label\":").append(jsonStr(ev.label));
+			}
 			if (ev.endX != null) {
 				sb.append(",\"endX\":").append(ev.endX).append(",\"endY\":").append(ev.endY);
 			}

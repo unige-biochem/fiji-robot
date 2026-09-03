@@ -22,17 +22,19 @@
       "clip": "001-apply-blur.mp4",
       "description": "We run Gaussian Blur from the search bar.",
       "script": {"body": "cs.run(GaussianBlur.class, true,\n    \"sigma\", 2.0d,  // We pick a 2-pixel radius.\n    \"name\", \"blurred\",\n    \"output\", file1\n).get()"},
-      "startedAt": "2026-06-26T07:00:35.218Z",
+      "startedAt": "2026-07-05T16:17:44.726Z",
       "comments": [
-        {"tMs":0,"endMs":0,"text":"Typing 'gaussian blur' into the search bar."},
-        {"tMs":0,"endMs":6,"text":"Setting sigma to 2 and choosing an output file."},
-        {"tMs":6,"endMs":248,"text":"Clicking OK to run."}
+        {"tMs":0,"endMs":1,"text":"Typing 'gaussian blur' into the search bar."},
+        {"tMs":1,"endMs":4,"text":"Setting sigma to 2 and choosing an output file."},
+        {"tMs":4,"endMs":365,"text":"Clicking OK to run."}
       ],
       "events": [
-        {"type":"mouse.click","tMs":0,"x":140,"y":70},
-        {"type":"mouse.click","tMs":0,"x":360,"y":240},
-        {"type":"key.press","tMs":6,"x":211,"y":692,"key":"2"},
-        {"type":"mouse.click","tMs":248,"x":420,"y":320}
+        {"type":"mouse.click","tMs":1,"x":140,"y":70},
+        {"type":"focus.dialog","tMs":2,"x":320,"y":40,"w":420,"h":300,"label":"Gaussian Blur"},
+        {"type":"mouse.click","tMs":2,"x":360,"y":240},
+        {"type":"key.press","tMs":4,"x":407,"y":771,"key":"2"},
+        {"type":"mouse.click","tMs":365,"x":420,"y":320},
+        {"type":"focus.clear","tMs":365,"x":0,"y":0}
       ]
     },
     {
@@ -41,9 +43,10 @@
       "clip": "002-inspect-result.mp4",
       "description": "We zoom into the result to compare with the original.",
       "script": {"body": null, "note": "visualization-only — observe the viewers"},
-      "startedAt": "2026-06-26T07:00:35.470Z",
+      "startedAt": "2026-07-05T16:17:45.093Z",
       "comments": [],
       "events": [
+        {"type":"focus.window","tMs":0,"x":500,"y":120,"w":640,"h":520,"label":"blurred"},
         {"type":"mouse.wheel","tMs":0,"x":700,"y":400,"notches":-3}
       ]
     }

@@ -14,6 +14,7 @@ import bdv.viewer.ViewerPanel;
 import javax.swing.JFormattedTextField;
 import javax.swing.JSlider;
 import javax.swing.JSpinner;
+import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -38,6 +39,16 @@ import java.util.List;
 public final class Bdv {
 
 	private Bdv() { /* static helpers only */ }
+
+	/**
+	 * Point the recorded camera at the window hosting {@code bdv}'s viewer (a
+	 * {@code focus.window} timeline event — see {@link Ui#focus}): every driver
+	 * in this class acts inside that window, so the downstream renderer should
+	 * frame it while the gesture plays.
+	 */
+	private static void focusWindow(BdvHandle bdv) {
+		Ui.focus(SwingUtilities.getWindowAncestor(bdv.getViewerPanel()));
+	}
 
 	/**
 	 * Half the visible thumb width, used to inset the usable track region.
@@ -96,6 +107,8 @@ public final class Bdv {
 		int current = slider.getValue();
 		if (current == targetTimepoint) return;
 
+		focusWindow(bdv);
+
 		if (Ui.FAST_MODE) {
 			Ui.runOnEdt(() -> vp.setTimepoint(targetTimepoint));
 			return;
@@ -137,6 +150,8 @@ public final class Bdv {
 		SplitPanel splitPanel = bdv.getSplitPanel();
 		if (splitPanel.isCollapsed() == !expanded) return;
 
+		focusWindow(bdv);
+
 		if (Ui.FAST_MODE) {
 			Ui.runOnEdt(() -> splitPanel.setCollapsed(!expanded));
 			return;
@@ -176,6 +191,7 @@ public final class Bdv {
 	 */
 	public static void selectSourceInCard(BdvHandle bdv, String sourceName) {
 		ensureSourcesCardReady(bdv);
+		focusWindow(bdv);
 
 		SourceTable table = findSourceTable(bdv);
 		if (table == null) {
@@ -236,6 +252,7 @@ public final class Bdv {
 	 */
 	public static void setDisplayRange(BdvHandle bdv, double min, double max) {
 		ensureSourcesCardReady(bdv);
+		focusWindow(bdv);
 
 		SourceTable table = findSourceTable(bdv);
 		if (table == null) {

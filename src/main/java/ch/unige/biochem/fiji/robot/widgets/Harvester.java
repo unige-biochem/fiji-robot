@@ -186,6 +186,10 @@ public class Harvester {
 
 		// Let the dialog finish realizing before we touch screen positions.
 		Ui.pause(Timings.PAUSE_AFTER_FRAME_PLACEMENT_MS);
+		// Re-emit the camera focus with the settled bounds (the dragFrame above
+		// fired before the dialog finished realizing, so it may have captured a
+		// pre-layout size).
+		Ui.focus(dialog);
 
 		for (Map.Entry<String, Object> e : values.entrySet()) {
 			String fieldName = e.getKey();
@@ -692,6 +696,10 @@ public class Harvester {
 		// Tutorial PNG: dialog fully filled, cursor on OK, just before the click.
 		Step.snapMoment("dialog");
 		Ui.click();
+		// The dialog is gone — release the camera focus that driveDialog's
+		// dragFrame placed on it, so the renderer doesn't stay zoomed on the
+		// empty spot. A subsequent waitForFrame / placeFrame re-focuses.
+		Ui.focusClear();
 		// Beat to let the dialog dismiss and the command's immediate UI side
 		// effects materialize before control returns to the caller.
 		Ui.pause(Timings.PAUSE_AFTER_DIALOG_OK_MS);
