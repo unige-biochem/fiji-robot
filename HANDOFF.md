@@ -323,9 +323,13 @@ listed under `maven-surefire-plugin/excludes`, so a bare `mvn test` (what CI
 runs) executes only the headless set, and `-Dtest=BdvViewTest` still overrides
 the exclusion locally. **Add a new GUI test → add it to that exclude list.**
 
-Still open: publishing to `maven.scijava.org` needs the `MAVEN_USER` /
-`MAVEN_PASS` (and GPG) secrets on the repo — until they exist `ci-build.sh`
-builds and tests but does not deploy. And the multi-module question (core + ij1
+Still open: publishing to `maven.scijava.org`. The `unige-biochem` org already
+supplies `MAVEN_USER` / `MAVEN_PASS`, so `ci-build.sh` passed its deployment
+checks and tried to push a snapshot on the first green build — and got **401**
+from `maven.scijava.org` for `ch/unige/biochem/fiji-robot`. Until those
+credentials are sorted out (and snapshot publishing is actually wanted),
+`build-main.yml` sets `NO_DEPLOY: true`, so CI builds and tests without
+deploying. Remove that line to turn publishing on. And the multi-module question (core + ij1
 + bdv under one reactor) vs separate repos — leaning multi-module.
 
 ## How to build / test

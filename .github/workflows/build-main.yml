@@ -34,6 +34,13 @@ jobs:
       - name: Execute the build
         run: .github/build.sh
         env:
+          # Build and test only -- do not publish to maven.scijava.org. The
+          # unige-biochem org supplies MAVEN_USER / MAVEN_PASS, so ci-build.sh
+          # would otherwise attempt a snapshot deploy on every push to main,
+          # and maven.scijava.org currently rejects those credentials with a
+          # 401 for this artifact. Drop this line once the credentials are
+          # confirmed and publishing is actually wanted (HANDOFF TODO #8).
+          NO_DEPLOY: true
           GPG_KEY_NAME: ${{ secrets.GPG_KEY_NAME }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           MAVEN_USER: ${{ secrets.MAVEN_USER }}
