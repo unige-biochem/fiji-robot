@@ -48,6 +48,10 @@ public class RecordingTimelineTest {
 	@After
 	public void tearDown() {
 		Timeline.scriptSource = null;
+		// Step's state is static and surefire reuses the JVM across classes, so
+		// a test that fails mid-step would leave the step open and every later
+		// Step.begin() — here and in other test classes — would throw. Close it.
+		if (Step.currentName() != null) Step.end();
 	}
 
 	private String runTwoStepDemo() throws Exception {

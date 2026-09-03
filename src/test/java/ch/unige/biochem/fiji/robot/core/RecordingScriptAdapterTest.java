@@ -58,6 +58,9 @@ public class RecordingScriptAdapterTest {
 	public void tearDown() {
 		GroovyScript.uninstall();
 		if (context != null) context.dispose();
+		// See RecordingTimelineTest.tearDown — don't leak an open step into the
+		// next test class sharing this JVM.
+		if (Step.currentName() != null) Step.end();
 	}
 
 	@Test

@@ -1,5 +1,6 @@
 package ch.unige.biochem.fiji.robot.core;
 
+import java.awt.GraphicsEnvironment;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.PointerInfo;
@@ -381,6 +382,10 @@ public class Timeline {
 
 	/** Current cursor location, or {@code (0,0)} when headless / unavailable. */
 	private static Point cursor() {
+		// A headless JVM throws HeadlessException from getPointerInfo() rather
+		// than returning null, so ask about the display first: the recording
+		// layer is meant to stay usable — and testable — with no screen.
+		if (GraphicsEnvironment.isHeadless()) return new Point(0, 0);
 		PointerInfo pi = MouseInfo.getPointerInfo();
 		return pi != null ? pi.getLocation() : new Point(0, 0);
 	}

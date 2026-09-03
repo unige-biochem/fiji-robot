@@ -335,6 +335,16 @@ mvn test                                # the headless set only (what CI runs)
 mvn test -Dtest=CmdExecutorTest         # headless backbone
 mvn test -Dtest=HarvesterWidgetsTest    # GUI — local display required; the
                                         # -Dtest= overrides the pom exclusion
+```
+
+Note that a Windows dev box can never reproduce CI's *real* headlessness through
+Maven: `-DargLine=-Djava.awt.headless=true` is silently dropped (pom-scijava sets
+its own `argLine`), so the tests keep seeing a display and pass. To actually
+reproduce a headless failure, run JUnit directly:
+
+```bash
+mvn -q dependency:build-classpath -Dmdep.outputFile=cp.txt -Dmdep.includeScope=test
+java -Djava.awt.headless=true -cp "target/classes;target/test-classes;$(cat cp.txt)"     org.junit.runner.JUnitCore ch.unige.biochem.fiji.robot.core.RecordingTimelineTest
 
 # Regenerate the worked example + committed sample asset (docs/sample-timeline.json):
 mvn -q test-compile exec:java -Dexec.classpathScope=test \
