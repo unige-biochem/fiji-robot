@@ -181,6 +181,26 @@
 					</excludes>
 				</configuration>
 			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<configuration>
+					<!-- This project is not modular (there is no module-info.java),
+					     but on a Java 9+ JDK the javadoc tool still builds a module
+					     path and derives an automatic module name for every
+					     dependency jar. ome:turbojpeg — pulled in transitively via
+					     bigdataviewer-playground -> bigwarp_fiji -> formats-bsd —
+					     ships TJExample.class in the default package, so that
+					     derivation fails outright ("Unable to derive module
+					     descriptor ...: unnamed package not allowed in module") and
+					     aborts javadoc:jar, which breaks every release build.
+					     Running the tool in pre-Java-9 style puts all dependencies
+					     on the classpath instead, so no module descriptor is
+					     derived and the offending jar is harmless. -->
+					<legacyMode>true</legacyMode>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
