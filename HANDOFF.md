@@ -316,23 +316,32 @@ Still open (nice-to-haves, not blocking):
 ### 8. Packaging / infra  ← REPO + CI DONE
 Done: the GitHub repo is `unige-biochem/fiji-robot` (public, MIT), `origin`
 points at it, and CI runs on `main` + PRs via the standard SciJava scripts
-(`.github/workflows/build-main.yml` / `build-pr.yml` → `.github/setup.sh` /
+(a single `.github/workflows/build.yml` → `.github/setup.sh` /
 `build.sh`, which curl `ci-setup-github-actions.sh` / `ci-build.sh`). The
 headless/GUI split is enforced in `pom.xml`: the eight GUI test classes are
 listed under `maven-surefire-plugin/excludes`, so a bare `mvn test` (what CI
 runs) executes only the headless set, and `-Dtest=BdvViewTest` still overrides
 the exclusion locally. **Add a new GUI test → add it to that exclude list.**
 
-Still open: publishing to `maven.scijava.org`. The `unige-biochem` org already
-supplies `MAVEN_USER` / `MAVEN_PASS`, so `ci-build.sh` passed its deployment
-checks and tried to push a snapshot on the first green build — and got **401**
-from `maven.scijava.org` for `ch/unige/biochem/fiji-robot`. Note this is **not
-necessarily a credentials problem**: maven.scijava.org was down at the time
-(community edition, too many connections), so the 401 may simply be the outage.
-Until publishing is actually wanted, `build-main.yml` sets `NO_DEPLOY: true`, so
-CI builds and tests without deploying. Remove that line to turn publishing on —
-and retry before assuming the secrets are wrong. And the multi-module question (core + ij1
-+ bdv under one reactor) vs separate repos — leaning multi-module.
+Publishing to `maven.scijava.org` is now ON, but unproven. The `unige-biochem`
+org supplies `MAVEN_USER` / `MAVEN_PASS`, so `ci-build.sh` passes its deployment
+checks and deploys: a snapshot on every push to `main`, and the release itself on
+a tag build. It has never actually succeeded — the first green build got **401**
+from `maven.scijava.org` for `ch/unige/biochem/fiji-robot`, and `NO_DEPLOY: true`
+was set right afterwards, so nothing has been uploaded since. Two candidate
+causes, in order: maven.scijava.org was down at the time (community edition, too
+many connections), so the 401 may just be the outage; or the credentials lack
+deploy rights for the `ch.unige.biochem` groupId, which SciJava's Nexus grants per
+group — that needs asking the SciJava maintainers, not new secrets. The next push
+to `main` is the test: watch whether the `0.1.3-SNAPSHOT` deploy goes through.
+
+Note 0.1.1 and 0.1.2 were tagged but **never published** — both tag builds ran
+with `NO_DEPLOY` set. Re-running them cannot publish either, since a tag build
+uses the workflow file as of that tag. The first version that can actually reach
+the repository is 0.1.3.
+
+Still open: the multi-module question (core + ij1 + bdv under one reactor) vs
+separate repos — leaning multi-module.
 
 ## How to build / test
 ```bash
