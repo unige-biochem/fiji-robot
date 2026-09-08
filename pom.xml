@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>43.0.0</version>
+		<version>45.1.0</version>
 		<relativePath />
 	</parent>
 
@@ -87,6 +87,7 @@
 		<package-name>ch.unige.biochem.fiji.robot</package-name>
 		<license.licenseName>mit</license.licenseName>
 		<license.copyrightOwners>University of Geneva, Department of Biochemistry</license.copyrightOwners>
+		<bigdataviewer-playground.version>0.23.1</bigdataviewer-playground.version>
 	</properties>
 
 	<repositories>
@@ -134,7 +135,7 @@
 		<dependency>
 			<groupId>sc.fiji</groupId>
 			<artifactId>bigdataviewer-playground</artifactId>
-			<version>0.21.0</version>
+			<version>${bigdataviewer-playground.version}</version>
 		</dependency>
 
 		<dependency>
