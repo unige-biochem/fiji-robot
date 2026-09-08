@@ -1,3 +1,5 @@
+[![Build Status](https://github.com/unige-biochem/fiji-robot/actions/workflows/build.yml/badge.svg)](https://github.com/unige-biochem/fiji-robot/actions/workflows/build.yml)
+
 # Fiji Robot
 
 A visible, recordable driver for SciJava/Fiji commands. The goal is to run a command
