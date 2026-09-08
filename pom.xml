@@ -88,6 +88,9 @@
 		<license.licenseName>mit</license.licenseName>
 		<license.copyrightOwners>University of Geneva, Department of Biochemistry</license.copyrightOwners>
 		<bigdataviewer-playground.version>0.23.1</bigdataviewer-playground.version>
+
+		<!-- NB: Deploy releases to the SciJava Maven repository. -->
+		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 	</properties>
 
 	<repositories>
