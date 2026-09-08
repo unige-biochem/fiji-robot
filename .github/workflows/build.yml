@@ -15,11 +15,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
-          java-version: '8'
+          # pom-scijava 45.x requires a JDK >= 11 to build: its enforcer
+          # RequireJavaVersion rule is [11,), so a Java 8 runner fails the
+          # build before compilation even starts.
+          java-version: '11'
           distribution: 'zulu'
           cache: 'maven'
       - name: Set up CI environment
@@ -29,6 +32,13 @@ jobs:
         run: .github/build.sh
         shell: bash
         env:
+          # Build and test only -- do not publish to maven.scijava.org. The
+          # unige-biochem org supplies MAVEN_USER / MAVEN_PASS, so ci-build.sh
+          # would otherwise attempt a snapshot deploy on every push to main,
+          # and maven.scijava.org currently rejects those credentials with a
+          # 401 for this artifact. Drop this line once the credentials are
+          # confirmed and publishing is actually wanted (HANDOFF TODO #8).
+          NO_DEPLOY: true
           GPG_KEY_NAME: ${{ secrets.GPG_KEY_NAME }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           MAVEN_USER: ${{ secrets.MAVEN_USER }}
