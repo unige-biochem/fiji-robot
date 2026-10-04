@@ -67,8 +67,14 @@ import java.util.List;
  * feel and fonts.</p>
  *
  * <p>{@code scale} paints the component bigger without laying it out again:
- * text, borders and shapes stay sharp; images drawn by the component (a
- * viewer's rendered picture) are resampled. Pure Swing, like the rest of the
+ * borders and shapes stay sharp; images drawn by the component (a viewer's
+ * rendered picture) are resampled. Text laid out by Swing (labels, menus,
+ * buttons) gets cut: hinted glyphs painted bigger are 1 to 3 % wider than their
+ * layout. Paint such components at scale 1, or lay them out bigger (FlatLaf's
+ * {@code flatlaf.uiScale}); text drawn freely, as in a viewer overlay, has no
+ * such limit.</p>
+ *
+ * <p>Pure Swing, like the rest of the
  * widget layer: a toolkit-specific picture (a BigDataViewer card) belongs to its
  * binding, built on these primitives.</p>
  */

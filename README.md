@@ -156,14 +156,17 @@ event dispatch thread, instead of grabbing the screen like `Screenshotter`:
 
 ```java
 BufferedImage window = Painter.paintWindowContentWhenStable(frame, 1, 3000, 60_000); // menu bar + content, no title bar
-BufferedImage card   = Painter.paint(panel, 2);                                     // any component, 2x
-BufferedImage menu   = Painter.paintMenu(frame.getJMenuBar(), 2, "File", "Save");   // a closed menu, item highlighted
+BufferedImage card   = Painter.paint(panel, 1);                                     // any component
+BufferedImage menu   = Painter.paintMenu(frame.getJMenuBar(), 1, "File", "Save");   // a closed menu, item highlighted
 Painter.write(window, new File("window.png"));
 ```
 
 `paintWhenStable` repaints until the picture stops changing, for components
 that render progressively (a BigDataViewer viewer). `paintMenu` lays out and
-paints the popup of a menu without opening it.
+paints the popup of a menu without opening it. A scale above 1 suits viewers
+and overlays, not Swing text: labels laid out at 1x get cut when painted
+bigger. `bdv.view.BdvCards` expands, collapses and paints the cards of a
+BigDataViewer card panel, a card whole even when it is scrolled out of view.
 
 `core.InMemoryPreferences` keeps `java.util.prefs` in memory, empty at start:
 a Fiji started with
