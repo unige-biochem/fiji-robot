@@ -171,6 +171,7 @@
 						<exclude>**/ActiveBdvSelectionTest.java</exclude>
 						<exclude>**/ActiveImagePresetTest.java</exclude>
 						<exclude>**/BdvViewTest.java</exclude>
+						<exclude>**/CommandDialogPainterTest.java</exclude>
 						<exclude>**/HarvesterWidgetsTest.java</exclude>
 						<exclude>**/SearchLauncherTest.java</exclude>
 						<exclude>**/SourceWidgetsTest.java</exclude>

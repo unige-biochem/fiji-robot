@@ -167,6 +167,8 @@ paints the popup of a menu without opening it. A scale above 1 suits viewers
 and overlays, not Swing text: labels laid out at 1x get cut when painted
 bigger. `bdv.view.BdvCards` expands, collapses and paints the cards of a
 BigDataViewer card panel, a card whole even when it is scrolled out of view.
+`widgets.CommandDialogPainter` paints the dialog of a command without
+running it, in a live context, some inputs preset: its choices are the real ones.
 
 `core.InMemoryPreferences` keeps `java.util.prefs` in memory, empty at start:
 a Fiji started with
@@ -286,6 +288,7 @@ mvn test -Dtest=HarvesterWidgetsTest         # the harvester widgets
 mvn test -Dtest=SearchLauncherTest           # ij1 search-bar launch
 mvn test -Dtest=TreeLauncherTest             # bdv source-tree right-click → dialog
 mvn test -Dtest=SourceWidgetsTest            # bdv source widgets, end to end
+mvn test -Dtest=CommandDialogPainterTest     # a command dialog painted offscreen
 ```
 
 The GUI tests synthesize real mouse / keyboard events (and boot a full Fiji), so
