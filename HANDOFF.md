@@ -180,6 +180,18 @@ Done:
   camera at a viewer during a passive streaming hold). Pinned by
   `RecordingTimelineTest`; sample in `docs/sample-timeline.json`.
 
+- **Painted pictures** (`widgets/Painter`, pure Swing): `printAll` of a
+  component, a region of it, a window's menu bar + content (no title bar, native
+  or FlatLaf), until the picture is stable (progressive BDV rendering), and the
+  popup of a closed menu (laid out offscreen, last item armed). The screen-free
+  counterpart of `Screenshotter`, added for the ABBA documentation pictures
+  (`abba-doc-assets`). Headless `PainterTest`. Still to add, in `…robot.bdv`: a
+  card of the BDV card panel (expand one, crop to it).
+- **`core/InMemoryPreferences`**: a `PreferencesFactory` keeping
+  `java.util.prefs` in memory, so a run starts from default parameter values and
+  never touches the user's prefs. Headless `InMemoryPreferencesTest` (the nodes;
+  the JVM-wide install needs the `-D` before any preference is read).
+
 ## TODO (roughly in priority order)
 
 ### 1. Wire visible execution into `CmdExecutor`  ← LARGELY DONE

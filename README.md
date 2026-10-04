@@ -147,6 +147,30 @@ flows. Widgets core can't know about plug in through the `WidgetDriver`
 extension point (see *Extending it*); the BDV source-tree / handle-list widgets
 register that way from the BDV binding.
 
+## Painted pictures and reproducible runs
+
+For pictures that must not depend on the screen (documentation figures taken
+over remote desktop, with the window covered or the screen locked),
+`widgets.Painter` paints Swing components into images with `printAll`, on the
+event dispatch thread, instead of grabbing the screen like `Screenshotter`:
+
+```java
+BufferedImage window = Painter.paintWindowContentWhenStable(frame, 1, 3000, 60_000); // menu bar + content, no title bar
+BufferedImage card   = Painter.paint(panel, 2);                                     // any component, 2x
+BufferedImage menu   = Painter.paintMenu(frame.getJMenuBar(), 2, "File", "Save");   // a closed menu, item highlighted
+Painter.write(window, new File("window.png"));
+```
+
+`paintWhenStable` repaints until the picture stops changing, for components
+that render progressively (a BigDataViewer viewer). `paintMenu` lays out and
+paints the popup of a menu without opening it.
+
+`core.InMemoryPreferences` keeps `java.util.prefs` in memory, empty at start:
+a Fiji started with
+`-Djava.util.prefs.PreferencesFactory=ch.unige.biochem.fiji.robot.core.InMemoryPreferences`
+shows every remembered input (SciJava persisted parameters) at its default, and
+leaves the user's preferences untouched.
+
 ## ImageJ1 binding (`…robot.ij1`)
 
 The IJ1 binding lives in this repo but is quarantined in the `…robot.ij1`
@@ -251,6 +275,8 @@ mvn test -Dtest=RecordingScriptAdapterTest   # the GroovyScript -> timeline adap
 mvn test -Dtest=GroovyHoistRenderTest        # #@File hoisting + dedup
 mvn test -Dtest=ActiveImageRenderTest        # object-valued render with no image open
 mvn test -Dtest=TreeLauncherRenderTest       # the bdv "sources" contribution
+mvn test -Dtest=PainterTest                  # painting components and closed menus offscreen
+mvn test -Dtest=InMemoryPreferencesTest      # the in-memory preference nodes
 
 # GUI (run locally; each boots its own ImageJ gateway and drives the screen):
 mvn test -Dtest=HarvesterWidgetsTest         # the harvester widgets
