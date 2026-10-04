@@ -30,11 +30,13 @@ package ch.unige.biochem.fiji.robot.widgets;
 import ch.unige.biochem.fiji.robot.core.Ui;
 
 import javax.imageio.ImageIO;
+import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JRootPane;
+import javax.swing.RepaintManager;
 import javax.swing.RootPaneContainer;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
@@ -55,8 +57,9 @@ import java.util.List;
 
 /**
  * Pictures of Swing components <em>as they are drawn</em>, not of the screen:
- * each method paints a component into an image with {@link Component#printAll},
- * on the event dispatch thread.
+ * each method paints a component into an image, as Swing paints it on screen
+ * (selection included, which {@link Component#printAll} leaves out), on the
+ * event dispatch thread.
  *
  * <p>Unlike {@link ch.unige.biochem.fiji.robot.core.Screenshotter} (a
  * {@link java.awt.Robot} screen grab), a painted picture does not depend on the
@@ -108,13 +111,34 @@ public final class Painter {
 				g.scale(scale, scale);
 				g.translate(-region.x, -region.y);
 				g.clipRect(region.x, region.y, region.width, region.height);
-				c.printAll(g);
+				paintAsOnScreen(c, g);
 			}
 			finally {
 				g.dispose();
 			}
 		});
 		return img;
+	}
+
+	/**
+	 * {@code paint}, not {@code printAll}: printing leaves out what only shows on
+	 * screen, the selected rows of a table first. Without double buffering, so
+	 * that the component draws straight into the (scaled) picture.
+	 */
+	private static void paintAsOnScreen(Component c, Graphics2D g) {
+		if (!(c instanceof JComponent)) {
+			c.printAll(g);
+			return;
+		}
+		RepaintManager manager = RepaintManager.currentManager(c);
+		boolean doubleBuffered = manager.isDoubleBufferingEnabled();
+		manager.setDoubleBufferingEnabled(false);
+		try {
+			c.paint(g);
+		}
+		finally {
+			manager.setDoubleBufferingEnabled(doubleBuffered);
+		}
 	}
 
 	/**

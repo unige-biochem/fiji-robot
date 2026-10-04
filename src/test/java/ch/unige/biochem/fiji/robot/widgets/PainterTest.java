@@ -33,6 +33,7 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JTable;
 import java.awt.Color;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
@@ -101,6 +102,18 @@ public class PainterTest {
 		assertFalse("the last item of the path is highlighted", Painter.sameImage(menu, highlighted));
 		assertFalse("the highlight is removed afterwards", open.getModel().isArmed());
 		assertTrue(Painter.paintMenu(bar, 2, "File", "Export").getHeight() > 0);
+	}
+
+	@Test
+	public void paintsTheSelectedRowsOfATable() {
+		JTable table = new JTable(new Object[][] { { "selected" }, { "not selected" } }, new Object[] { "Name" });
+		table.setSelectionBackground(Color.RED);
+		table.setSize(200, 2 * table.getRowHeight());
+		table.setRowSelectionInterval(0, 0);
+		BufferedImage img = Painter.paint(table, 1);
+		int x = 70, selectedY = table.getRowHeight() / 2, otherY = table.getRowHeight() * 3 / 2;
+		assertEquals("printAll would leave the selection out", Color.RED.getRGB(), img.getRGB(x, selectedY));
+		assertFalse(Color.RED.getRGB() == img.getRGB(x, otherY));
 	}
 
 	@Test(expected = IllegalArgumentException.class)
