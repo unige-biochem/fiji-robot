@@ -107,6 +107,31 @@ public class StopMotionTest {
 		assertTrue(mp4.length() > 0);
 	}
 
+	@Test
+	public void clicksTheComponentUnderThePointer() throws Exception {
+		JPanel p = new JPanel(null);
+		p.setSize(200, 100);
+		javax.swing.JButton button = new javax.swing.JButton("OK");
+		button.setBounds(120, 60, 60, 30);
+		p.add(button);
+		int[] clicked = { 0 };
+		button.addActionListener(e -> clicked[0]++);
+		javax.swing.JTextField field = new javax.swing.JTextField();
+		field.setBounds(10, 10, 100, 24);
+		p.add(field);
+
+		Film film = new Film(tmp.newFolder("frames"));
+		StopMotion camera = new StopMotion(film, p, new Rectangle(0, 0, 200, 100), 1);
+		VirtualPointer pointer = camera.pointer(p, new Point(20, 80));
+		pointer.typeInto(field, "800", 100);
+		pointer.clickOn(button, 400);
+		javax.swing.SwingUtilities.invokeAndWait(() -> { }); // the queued click
+
+		assertEquals("800", field.getText());
+		assertEquals(1, clicked[0]);
+		assertEquals(new Point(150, 75), pointer.position());
+	}
+
 	private static boolean ffmpeg() {
 		try {
 			return new ProcessBuilder(Film.FFMPEG, "-version").redirectErrorStream(true).start().waitFor() == 0;

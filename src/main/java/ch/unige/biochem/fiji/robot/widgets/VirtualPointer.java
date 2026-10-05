@@ -32,7 +32,10 @@ import javax.swing.JPopupMenu;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
+import javax.swing.JFormattedTextField;
+import javax.swing.text.JTextComponent;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.KeyEventDispatcher;
 import java.awt.Point;
 import java.awt.event.InputEvent;
@@ -40,6 +43,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.lang.reflect.InvocationTargetException;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -72,8 +76,7 @@ public final class VirtualPointer {
 		this.target = target;
 		this.camera = camera;
 		this.position = new Point(start);
-		send(MouseEvent.MOUSE_ENTERED, 0, 0);
-		send(MouseEvent.MOUSE_MOVED, 0, 0);
+		send(MouseEvent.MOUSE_MOVED, 0, 0); // and the entered event
 	}
 
 	/**
@@ -234,16 +237,132 @@ public final class VirtualPointer {
 		camera.setKeys(heldLabel);
 	}
 
+	/**
+	 * Moves to the middle of a component (of the target, or of a window the camera shows, see
+	 * {@link StopMotion#showWindow}) in {@code moveMs}, and clicks it with the left button.
+	 */
+	public void clickOn(Component c, int moveMs) {
+		Point p = locate(c, c.getWidth() / 2, c.getHeight() / 2);
+		moveTo(p.x, p.y, moveMs);
+		click(MouseEvent.BUTTON1);
+	}
+
+	/** Where a point of a component is, in the coordinates of the target (through the windows the camera shows). */
+	public Point locate(Component c, int x, int y) {
+		Point[] p = { null };
+		onEdt(() -> {
+			StopMotion.Floating f = camera.floatingOf(c);
+			if (f != null) {
+				Point inRoot = SwingUtilities.convertPoint(c, x, y, f.root);
+				Point inPainted = new Point(inRoot.x + f.at.x, inRoot.y + f.at.y);
+				p[0] = SwingUtilities.convertPoint(camera.painted(), inPainted, target);
+			}
+			else {
+				p[0] = SwingUtilities.convertPoint(c, x, y, target);
+			}
+		});
+		return p[0];
+	}
+
+	/**
+	 * Types text into a field, replacing its content, a character every {@code msPerChar} of the film; a formatted
+	 * field (a number of a spinner) commits its value at the end, as when the field loses the focus.
+	 */
+	public void typeInto(JTextComponent field, String text, int msPerChar) {
+		onEdt(field::selectAll);
+		camera.shoot(CLICK_MS * 2);
+		for (int i = 1; i <= text.length(); i++) {
+			String typed = text.substring(0, i);
+			onEdt(() -> field.setText(typed));
+			camera.shoot(msPerChar);
+		}
+		if (field instanceof JFormattedTextField) {
+			onEdt(() -> {
+				try {
+					((JFormattedTextField) field).commitEdit();
+				}
+				catch (ParseException e) {
+					throw new IllegalArgumentException("Not a valid value for " + field + ": " + text, e);
+				}
+			});
+		}
+	}
+
+	/**
+	 * Sends a mouse event as AWT does: to the deepest component under the pointer (in a window the camera shows, if
+	 * one is there), or, while a button is held, to the component pressed. Queued on the event thread, not waited
+	 * for: a click that opens a modal dialog must not block the film; the next frame, painted on the event thread,
+	 * comes after it.
+	 */
 	private void send(int id, int clickCount, int eventButton) {
 		int mods = modifiers | (button == 0 ? 0 : buttonMask(button));
 		Point p = new Point(position);
-		onEdt(() -> {
-			Point screen = new Point(p);
-			if (target.isShowing()) SwingUtilities.convertPointToScreen(screen, target);
-			MouseEvent e = new MouseEvent(target, id, System.currentTimeMillis(), mods, p.x, p.y, screen.x, screen.y,
-					clickCount, id == MouseEvent.MOUSE_RELEASED && eventButton == MouseEvent.BUTTON3, eventButton);
-			target.dispatchEvent(e);
+		SwingUtilities.invokeLater(() -> {
+			Component receiver;
+			Point at;
+			if (grabbed != null && id != MouseEvent.MOUSE_MOVED) {
+				receiver = grabbed;
+				at = toComponent(p, receiver);
+			}
+			else {
+				Object[] hit = hit(p);
+				receiver = (Component) hit[0];
+				at = (Point) hit[1];
+			}
+			if (id == MouseEvent.MOUSE_MOVED || id == MouseEvent.MOUSE_PRESSED) hover(receiver, p, mods);
+			if (id == MouseEvent.MOUSE_PRESSED) grabbed = receiver;
+			if (id == MouseEvent.MOUSE_RELEASED) grabbed = null;
+			dispatch(receiver, id, at, mods, clickCount, eventButton);
 		});
+	}
+
+	private Component grabbed; // the component pressed, which gets the drags and the release (event thread only)
+	private Component hovered; // the component under the pointer (event thread only)
+
+	/** The deepest component under a point of the target, and the point in its coordinates. */
+	private Object[] hit(Point p) {
+		Component painted = camera.painted();
+		Point inPainted = SwingUtilities.convertPoint(target, p, painted);
+		StopMotion.Floating f = camera.floatingAt(inPainted);
+		Container root;
+		Point q;
+		if (f != null) {
+			root = f.root;
+			q = new Point(inPainted.x - f.at.x, inPainted.y - f.at.y);
+		}
+		else if (target instanceof Container) {
+			root = (Container) target;
+			q = p;
+		}
+		else {
+			return new Object[] { target, p };
+		}
+		Component c = SwingUtilities.getDeepestComponentAt(root, q.x, q.y);
+		if (c == null) c = root;
+		return new Object[] { c, SwingUtilities.convertPoint(root, q, c) };
+	}
+
+	/** Sends the exit and enter events a real pointer causes, moving from a component to another. */
+	private void hover(Component receiver, Point p, int mods) {
+		if (receiver == hovered) return;
+		if (hovered != null) dispatch(hovered, MouseEvent.MOUSE_EXITED, toComponent(p, hovered), mods, 0, 0);
+		hovered = receiver;
+		dispatch(receiver, MouseEvent.MOUSE_ENTERED, toComponent(p, receiver), mods, 0, 0);
+	}
+
+	/** A point of the target in the coordinates of a component, which may be in a window the camera shows. */
+	private Point toComponent(Point p, Component c) {
+		StopMotion.Floating f = camera.floatingOf(c);
+		if (f == null) return SwingUtilities.convertPoint(target, p, c);
+		Point inPainted = SwingUtilities.convertPoint(target, p, camera.painted());
+		return SwingUtilities.convertPoint(f.root, inPainted.x - f.at.x, inPainted.y - f.at.y, c);
+	}
+
+	private static void dispatch(Component receiver, int id, Point at, int mods, int clickCount, int eventButton) {
+		Point screen = new Point(at);
+		if (receiver.isShowing()) SwingUtilities.convertPointToScreen(screen, receiver);
+		receiver.dispatchEvent(new MouseEvent(receiver, id, System.currentTimeMillis(), mods, at.x, at.y, screen.x,
+				screen.y, clickCount, id == MouseEvent.MOUSE_RELEASED && eventButton == MouseEvent.BUTTON3, eventButton));
 	}
 
 	private void key(int id, int keyCode, char c) {

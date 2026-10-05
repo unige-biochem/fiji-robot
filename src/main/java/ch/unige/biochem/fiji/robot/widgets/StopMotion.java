@@ -28,12 +28,16 @@
 package ch.unige.biochem.fiji.robot.widgets;
 
 import javax.swing.JPopupMenu;
+import javax.swing.JRootPane;
+import javax.swing.RootPaneContainer;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dialog;
+import java.awt.Frame;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
@@ -41,8 +45,12 @@ import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.Window;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 /**
@@ -131,6 +139,96 @@ public final class StopMotion {
 		film.extend(ms);
 	}
 
+	/** A window shown in the film over the painted component, where the film puts it, not where the screen has it. */
+	public static final class Floating {
+		public final Window window;
+		public final JRootPane root;
+		/** Top left corner of its root pane, in the coordinates of the painted component. */
+		public final Point at;
+
+		Floating(Window window, Point at) {
+			if (!(window instanceof RootPaneContainer)) throw new IllegalArgumentException("Not a Swing window: " + window);
+			this.window = window;
+			this.root = ((RootPaneContainer) window).getRootPane();
+			this.at = new Point(at);
+		}
+	}
+
+	private final List<Floating> floating = new CopyOnWriteArrayList<>();
+
+	/** Height of the title bar drawn above a window shown in the film, in pixels of the painted component. */
+	public static int TITLE_BAR_HEIGHT = 26;
+
+	/**
+	 * Shows a window (a dialog opened by an action) in the film, its root pane at {@code at} in the coordinates of
+	 * the painted component, under a drawn title bar: a window of its own is not a part of the painted component,
+	 * and where the screen puts it does not matter. The {@link VirtualPointer} acts on it where the film shows it.
+	 * Shown until it closes or {@link #hideWindow}.
+	 */
+	public void showWindow(Window window, Point at) {
+		hideWindow(window);
+		floating.add(new Floating(window, at));
+	}
+
+	public void hideWindow(Window window) {
+		floating.removeIf(f -> f.window == window);
+	}
+
+	/** The topmost window shown at this point of the painted component, or null. */
+	Floating floatingAt(Point inPainted) {
+		for (int i = floating.size() - 1; i >= 0; i--) {
+			Floating f = floating.get(i);
+			if (!f.window.isShowing()) continue;
+			if (new Rectangle(f.at, f.root.getSize()).contains(inPainted)) return f;
+		}
+		return null;
+	}
+
+	/** The shown window a component is part of, or null. */
+	Floating floatingOf(Component c) {
+		for (Floating f : floating) {
+			if (f.window.isShowing() && SwingUtilities.isDescendingFrom(c, f.root)) return f;
+		}
+		return null;
+	}
+
+	private void paintWindows(Graphics2D g) {
+		for (Floating f : floating) {
+			boolean[] showing = { false };
+			String[] title = { "" };
+			try {
+				SwingUtilities.invokeAndWait(() -> {
+					showing[0] = f.window.isShowing();
+					if (f.window instanceof Dialog) title[0] = ((Dialog) f.window).getTitle();
+					if (f.window instanceof Frame) title[0] = ((Frame) f.window).getTitle();
+				});
+			}
+			catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+			if (!showing[0]) continue;
+			BufferedImage content = Painter.paint(f.root, scale);
+			int x = (int) Math.round((f.at.x - region.x) * scale), y = (int) Math.round((f.at.y - region.y) * scale);
+			int bar = (int) Math.round(TITLE_BAR_HEIGHT * scale);
+			int w = content.getWidth(), h = content.getHeight();
+			g.setColor(new Color(0, 0, 0, 60));
+			g.fillRect(x + 4, y - bar + 4, w, h + bar); // shadow
+			g.setColor(new Color(238, 238, 238));
+			g.fillRect(x, y - bar, w, bar);
+			g.setColor(new Color(40, 40, 40));
+			g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+			g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, (int) Math.round(13 * scale)));
+			FontMetrics fm = g.getFontMetrics();
+			Shape clip = g.getClip();
+			g.clipRect(x, y - bar, w - (int) (6 * scale), bar);
+			g.drawString(title[0] == null ? "" : title[0], x + (int) (10 * scale), y - bar + (bar + fm.getAscent() - fm.getDescent()) / 2);
+			g.setClip(clip);
+			g.drawImage(content, x, y, null);
+			g.setColor(new Color(150, 150, 150));
+			g.drawRect(x - 1, y - bar - 1, w + 1, h + bar + 1);
+		}
+	}
+
 	/**
 	 * The popup menu shown, if it opened on the painted component (a context menu): a popup is a window of its own
 	 * or a layer of the window, not a part of the component.
@@ -170,6 +268,7 @@ public final class StopMotion {
 	private void decorate(BufferedImage img) {
 		Graphics2D g = img.createGraphics();
 		try {
+			paintWindows(g);
 			paintPopup(g);
 			g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 			g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
