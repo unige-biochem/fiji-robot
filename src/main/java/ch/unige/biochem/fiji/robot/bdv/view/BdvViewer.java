@@ -29,8 +29,10 @@ package ch.unige.biochem.fiji.robot.bdv.view;
 
 import bdv.viewer.ViewerPanel;
 import bdv.viewer.animate.OverlayAnimator;
+import org.scijava.ui.behaviour.GlobalKeyEventDispatcher;
 
 import javax.swing.SwingUtilities;
+import java.awt.KeyEventDispatcher;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -69,6 +71,15 @@ public final class BdvViewer {
 				throw new RuntimeException(e);
 			}
 		}
+	}
+
+	/**
+	 * The dispatcher through which BigDataViewer's behaviours know the keys held (shift, the A of
+	 * {@code ctrl A}): give it to a {@code VirtualPointer} (its {@code addKeyEventDispatcher}), whose synthetic key
+	 * events do not go through the keyboard focus manager.
+	 */
+	public static KeyEventDispatcher keyEventDispatcher() {
+		return GlobalKeyEventDispatcher.getInstance();
 	}
 
 	/** True while an overlay animator of the viewer needs repainting: a message shows, a transition runs. */

@@ -151,7 +151,7 @@ register that way from the BDV binding.
 
 For pictures that must not depend on the screen (documentation figures taken
 over remote desktop, with the window covered or the screen locked),
-`widgets.Painter` paints Swing components into images with `printAll`, on the
+`widgets.Painter` paints Swing components into images as on screen, on the
 event dispatch thread, instead of grabbing the screen like `Screenshotter`:
 
 ```java
@@ -169,6 +169,30 @@ bigger. `bdv.view.BdvCards` expands, collapses and paints the cards of a
 BigDataViewer card panel, a card whole even when it is scrolled out of view.
 `widgets.CommandDialogPainter` paints the dialog of a command without
 running it, in a live context, some inputs preset: its choices are the real ones.
+
+Animations are filmed the same way, frame by frame (a stop-motion film), never
+recorded from the screen:
+
+```java
+Film film = new Film(new File("target/frames"));
+StopMotion camera = new StopMotion(film, viewer, region, 1)
+        .setScene(() -> Painter.paintWhenStable(viewer, region, 1, 300, 60_000));
+VirtualPointer pointer = camera.pointer(viewer, new Point(500, 400))
+        .addKeyEventDispatcher(BdvViewer.keyEventDispatcher());  // BigDataViewer tracks keys globally
+pointer.holdKeys(InputEvent.SHIFT_DOWN_MASK, "Shift");
+pointer.drag(MouseEvent.BUTTON1, 700, 600, 900);                // a frame every 40 ms of the film
+pointer.releaseKeys();
+pointer.click(MouseEvent.BUTTON3);                               // a context menu: the camera paints it
+pointer.choose("Set as Key Slice", 700);                         // moves to the item, highlights it, clicks it
+film.writeGif(new File("drag.gif"));                             // or writeMp4(file, fps), through ffmpeg
+```
+
+`VirtualPointer` sends synthetic mouse events to one component and key events
+to its key listeners (and to the dispatchers given), so the real pointer, the
+focus and the visible screen do not matter. `StopMotion` draws the pointer, a
+ring while a button is pressed, the keys held, and the popup menu opened on the
+component. Each frame lasts the time the script gives it, whatever the time the
+program took to reach it.
 
 `core.InMemoryPreferences` keeps `java.util.prefs` in memory, empty at start:
 a Fiji started with
@@ -281,6 +305,7 @@ mvn test -Dtest=GroovyHoistRenderTest        # #@File hoisting + dedup
 mvn test -Dtest=ActiveImageRenderTest        # object-valued render with no image open
 mvn test -Dtest=TreeLauncherRenderTest       # the bdv "sources" contribution
 mvn test -Dtest=PainterTest                  # painting components and closed menus offscreen
+mvn test -Dtest=StopMotionTest              # synthetic events, filmed frames, GIF and MP4 (ffmpeg if on the PATH)
 mvn test -Dtest=InMemoryPreferencesTest      # the in-memory preference nodes
 
 # GUI (run locally; each boots its own ImageJ gateway and drives the screen):

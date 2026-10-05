@@ -191,6 +191,14 @@ Done:
   `java.util.prefs` in memory, so a run starts from default parameter values and
   never touches the user's prefs. Headless `InMemoryPreferencesTest` (the nodes;
   the JVM-wide install needs the `-D` before any preference is read).
+- **Painted animations** (`widgets/VirtualPointer`, `StopMotion`, `Film`): the
+  screen-free counterpart of `ScreenRecorder` + `Ui` Robot gestures. Synthetic
+  mouse events to one component, key events to its key listeners and to given
+  `KeyEventDispatcher`s (`bdv.view.BdvViewer.keyEventDispatcher` for BDV
+  behaviours); popup menu items chosen by text. Frames painted with their
+  duration (stop motion), pointer / pressed ring / keys / open popup drawn, then
+  ffmpeg to GIF or MP4. Headless `StopMotionTest`. Not connected to `Step` /
+  `Timeline` yet: a film is not a clip of `timeline.json`.
 
 ## TODO (roughly in priority order)
 
