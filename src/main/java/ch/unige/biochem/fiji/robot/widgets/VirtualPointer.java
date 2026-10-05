@@ -27,6 +27,7 @@
  */
 package ch.unige.biochem.fiji.robot.widgets;
 
+import ch.unige.biochem.fiji.robot.core.EventRecorder;
 import ch.unige.biochem.fiji.robot.core.Timeline;
 
 import javax.swing.JComboBox;
@@ -583,7 +584,7 @@ public final class VirtualPointer {
 				Point at = (Point) hit[1];
 				Point screen = new Point(at);
 				if (receiver.isShowing()) SwingUtilities.convertPointToScreen(screen, receiver);
-				receiver.dispatchEvent(new MouseWheelEvent(receiver, MouseEvent.MOUSE_WHEEL, System.currentTimeMillis(),
+				dispatchUnrecorded(receiver, new MouseWheelEvent(receiver, MouseEvent.MOUSE_WHEEL, System.currentTimeMillis(),
 						mods, at.x, at.y, screen.x, screen.y, 0, false, MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, step));
 			});
 			camera.shoot(msPerNotch);
@@ -593,8 +594,22 @@ public final class VirtualPointer {
 	private static void dispatch(Component receiver, int id, Point at, int mods, int clickCount, int eventButton) {
 		Point screen = new Point(at);
 		if (receiver.isShowing()) SwingUtilities.convertPointToScreen(screen, receiver);
-		receiver.dispatchEvent(new MouseEvent(receiver, id, System.currentTimeMillis(), mods, at.x, at.y, screen.x,
+		dispatchUnrecorded(receiver, new MouseEvent(receiver, id, System.currentTimeMillis(), mods, at.x, at.y, screen.x,
 				screen.y, clickCount, id == MouseEvent.MOUSE_RELEASED && eventButton == MouseEvent.BUTTON3, eventButton));
+	}
+
+	/**
+	 * Dispatches a synthetic event, hidden from {@link EventRecorder}, which records the gestures of the real
+	 * mouse: the pointer records its own gestures in the coordinates of the film (on the event thread).
+	 */
+	private static void dispatchUnrecorded(Component receiver, java.awt.AWTEvent e) {
+		EventRecorder.suppress(true);
+		try {
+			receiver.dispatchEvent(e);
+		}
+		finally {
+			EventRecorder.suppress(false);
+		}
 	}
 
 	private void key(int id, int keyCode, char c) {
