@@ -27,21 +27,30 @@
  */
 package ch.unige.biochem.fiji.robot.widgets;
 
+import ch.unige.biochem.fiji.robot.core.Timeline;
+
+import javax.swing.JComboBox;
+import javax.swing.JList;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
 import javax.swing.JFormattedTextField;
+import javax.swing.plaf.basic.ComboPopup;
 import javax.swing.text.JTextComponent;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.KeyEventDispatcher;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -74,9 +83,21 @@ public final class VirtualPointer {
 
 	VirtualPointer(Component target, StopMotion camera, Point start) {
 		this.target = target;
+		this.keyTarget = target;
 		this.camera = camera;
 		this.position = new Point(start);
 		send(MouseEvent.MOUSE_MOVED, 0, 0); // and the entered event
+	}
+
+	private Component keyTarget; // where the keys go: the target, or the component set
+
+	/**
+	 * Sends the key events to this component instead of the target: the target of a film of a whole window is its
+	 * root pane, the keys belong to a component inside (a viewer).
+	 */
+	public VirtualPointer setKeyTarget(Component keyTarget) {
+		this.keyTarget = keyTarget;
+		return this;
 	}
 
 	/**
@@ -114,8 +135,33 @@ public final class VirtualPointer {
 			double e = t * t * (3 - 2 * t); // smoothstep
 			position.setLocation((int) Math.round(x0 + (x - x0) * e), (int) Math.round(y0 + (y - y0) * e));
 			send(button == 0 ? MouseEvent.MOUSE_MOVED : MouseEvent.MOUSE_DRAGGED, 0, 0);
-			camera.shoot(STEP_MS);
+			if (button != 0 && i < steps) {
+				Point f = filmPosition();
+				dragPath.add(new int[] { f.x, f.y });
+			}
+			if (button == 0) camera.shootMove(STEP_MS);
+			else camera.shoot(STEP_MS);
 		}
+	}
+
+	// The press under way, for the timeline: when, where on the frames, and where the pointer went since
+	private long pressTime;
+	private Point pressAt;
+	private final List<int[]> dragPath = new ArrayList<>();
+
+	/** Where the pointer is on the frames of the film, in their pixels. */
+	public Point filmPosition() {
+		return camera.filmPoint(target, position);
+	}
+
+	/** The modifier keys held, as the timeline names them. */
+	private List<String> modifierNames() {
+		List<String> names = new ArrayList<>();
+		if ((modifiers & InputEvent.SHIFT_DOWN_MASK) != 0) names.add("shift");
+		if ((modifiers & InputEvent.CTRL_DOWN_MASK) != 0) names.add("ctrl");
+		if ((modifiers & InputEvent.ALT_DOWN_MASK) != 0) names.add("alt");
+		if ((modifiers & InputEvent.META_DOWN_MASK) != 0) names.add("meta");
+		return names;
 	}
 
 	/** Moves to x, y without a frame (the pointer jumps): the target still gets the move. */
@@ -128,6 +174,9 @@ public final class VirtualPointer {
 	public void press(int mouseButton) {
 		if (button != 0) throw new IllegalStateException("A button is already pressed");
 		button = mouseButton;
+		pressTime = Timeline.now();
+		pressAt = filmPosition();
+		dragPath.clear();
 		send(MouseEvent.MOUSE_PRESSED, 1, mouseButton);
 		camera.shoot(CLICK_MS);
 	}
@@ -141,6 +190,15 @@ public final class VirtualPointer {
 		if (button == 0) throw new IllegalStateException("No button pressed");
 		int b = button;
 		button = 0;
+		Point releaseAt = filmPosition();
+		if (releaseAt.equals(pressAt)) {
+			Timeline.recordClick(b == MouseEvent.BUTTON3 ? "mouse.right_click" : "mouse.click", pressTime,
+					pressAt.x, pressAt.y, modifierNames());
+		}
+		else {
+			Timeline.recordDrag(pressTime, pressAt.x, pressAt.y, releaseAt.x, releaseAt.y, modifierNames(),
+					new ArrayList<>(dragPath));
+		}
 		send(MouseEvent.MOUSE_RELEASED, 1, b);
 		if (click) send(MouseEvent.MOUSE_CLICKED, 1, b);
 		camera.shoot(CLICK_MS);
@@ -178,21 +236,102 @@ public final class VirtualPointer {
 		if (names.isEmpty()) throw new IllegalStateException("No popup menu shown on " + target);
 		if (item[0] == null) throw new IllegalArgumentException("No item '" + text + "' in the popup menu: " + names);
 		// the menu is not the target: the pointer moves without events
+		glideTo(center[0], moveMs, () -> MenuSelectionManager.defaultManager().setSelectedPath(
+				new MenuElement[] { (JPopupMenu) item[0].getParent(), item[0] }));
+		clickMenuItem(item[0]);
+	}
+
+	/**
+	 * Moves the pointer to a point of the target in {@code moveMs} without sending it events (over a menu, which
+	 * the selection opens and highlights); {@code atEnd} runs on the event thread before the last frame.
+	 */
+	private void glideTo(Point to, int moveMs, Runnable atEnd) {
 		int steps = Math.max(1, Math.round(moveMs / (float) STEP_MS));
 		int x0 = position.x, y0 = position.y;
 		for (int i = 1; i <= steps; i++) {
 			double t = (double) i / steps;
 			double e = t * t * (3 - 2 * t);
-			position.setLocation((int) Math.round(x0 + (center[0].x - x0) * e), (int) Math.round(y0 + (center[0].y - y0) * e));
-			if (i == steps) onEdt(() -> MenuSelectionManager.defaultManager().setSelectedPath(
-					new MenuElement[] { (JPopupMenu) item[0].getParent(), item[0] }));
-			camera.shoot(STEP_MS);
+			position.setLocation((int) Math.round(x0 + (to.x - x0) * e), (int) Math.round(y0 + (to.y - y0) * e));
+			if (i == steps && atEnd != null) onEdt(atEnd);
+			if (i == steps && atEnd != null) camera.shoot(STEP_MS);
+			else camera.shootMove(STEP_MS);
 		}
+	}
+
+	/**
+	 * Clicks a highlighted menu item: shown highlighted a moment, then the menus close and the item acts, as a
+	 * real click. Queued, not waited for: an item that opens a modal dialog must not block the film.
+	 */
+	private void clickMenuItem(JMenuItem item) {
 		camera.shoot(CLICK_MS * 3);
-		onEdt(() -> {
-			MenuSelectionManager.defaultManager().clearSelectedPath();
-			item[0].doClick(0);
-		});
+		Point f = filmPosition();
+		Timeline.recordClick("mouse.click", Timeline.now(), f.x, f.y, modifierNames());
+		onEdt(() -> MenuSelectionManager.defaultManager().clearSelectedPath());
+		SwingUtilities.invokeLater(() -> item.doClick(0));
+		onEdt(() -> { }); // the click happened before the next frame
+	}
+
+	/** How long the pointer takes from a menu to the next one of a path. */
+	public static int MENU_MOVE_MS = 450;
+
+	/**
+	 * Chooses an item of a menu bar (of the target's window, or of a window the camera shows) the way a user does:
+	 * the pointer goes to the menu, which opens, then down the submenus of the {@code path} (texts of the items,
+	 * or their start), and clicks the last one. The menus open and highlight by the menu selection, not by
+	 * synthetic events (which menus follow unreliably), and the camera paints them where they open.
+	 */
+	public void chooseInMenuBar(JMenuBar bar, String... path) {
+		if (path.length < 2) throw new IllegalArgumentException("A menu and an item at least: " + String.join(" > ", path));
+		List<MenuElement> selection = new ArrayList<>();
+		selection.add(bar);
+		JMenu menu = null;
+		for (int i = 0; i < path.length; i++) {
+			String text = path[i];
+			JMenuItem[] found = { null };
+			JMenu parent = menu;
+			onEdt(() -> found[0] = parent == null ? menuOfBar(bar, text) : itemOf(parent, text));
+			JMenuItem item = found[0];
+			if (item == null) throw new IllegalArgumentException("No '" + text + "' in " + String.join(" > ", path));
+			// the menus of the bar are pointed at their middle, the items of a popup near their left end
+			Point[] to = { null };
+			onEdt(() -> to[0] = locate(item, parent == null ? item.getWidth() / 2 : 30, item.getHeight() / 2));
+			if (parent != null) {
+				// along the item of the parent menu first, then down: the pointer stays on the open menus
+				Point here = position();
+				if (Math.abs(to[0].x - here.x) > 40) glideTo(new Point(to[0].x, here.y), MENU_MOVE_MS / 2, null);
+			}
+			selection.add(item);
+			boolean last = i == path.length - 1;
+			if (!last) {
+				if (!(item instanceof JMenu)) throw new IllegalArgumentException("'" + text + "' is not a menu");
+				selection.add(((JMenu) item).getPopupMenu());
+			}
+			MenuElement[] sel = selection.toArray(new MenuElement[0]);
+			glideTo(to[0], MENU_MOVE_MS, () -> MenuSelectionManager.defaultManager().setSelectedPath(sel));
+			if (!last) {
+				camera.shoot(CLICK_MS * 2);
+				menu = (JMenu) item;
+			}
+			else {
+				clickMenuItem(item);
+			}
+		}
+	}
+
+	private static JMenu menuOfBar(JMenuBar bar, String text) {
+		for (int i = 0; i < bar.getMenuCount(); i++) {
+			JMenu m = bar.getMenu(i);
+			if (m != null && m.getText() != null && m.getText().startsWith(text)) return m;
+		}
+		return null;
+	}
+
+	private static JMenuItem itemOf(JMenu menu, String text) {
+		for (Component c : menu.getMenuComponents()) {
+			if (c instanceof JMenuItem && ((JMenuItem) c).getText() != null
+					&& ((JMenuItem) c).getText().startsWith(text)) return (JMenuItem) c;
+		}
+		return null;
 	}
 
 	/** Drags with a button from where the pointer is to x, y. */
@@ -231,6 +370,8 @@ public final class VirtualPointer {
 	 */
 	public void type(int keyCode, String label, int shownMs) {
 		camera.setKeys(label);
+		Point f = filmPosition();
+		Timeline.recordKey(Timeline.now(), KeyEvent.getKeyText(keyCode), f.x, f.y, modifierNames());
 		key(KeyEvent.KEY_PRESSED, keyCode, KeyEvent.CHAR_UNDEFINED);
 		key(KeyEvent.KEY_RELEASED, keyCode, KeyEvent.CHAR_UNDEFINED);
 		camera.shoot(shownMs);
@@ -246,6 +387,66 @@ public final class VirtualPointer {
 		Point p = locate(c, c.getWidth() / 2, c.getHeight() / 2);
 		moveTo(p.x, p.y, moveMs);
 		click(MouseEvent.BUTTON1);
+	}
+
+	/** Moves to a point of a component in {@code moveMs}, and clicks it with the left button. */
+	public void clickOn(Component c, int x, int y, int moveMs) {
+		if (c instanceof JTextComponent) steadyCaret((JTextComponent) c);
+		Point p = locate(c, x, y);
+		moveTo(p.x, p.y, moveMs);
+		click(MouseEvent.BUTTON1);
+	}
+
+	/**
+	 * Chooses an item of a combo box as a user does: a click opens its list, the pointer goes to the item, which
+	 * highlights, and a click chooses it. The list is painted where it opens next to the combo box, as the film
+	 * shows the combo box (see {@link StopMotion#showPopup}).
+	 *
+	 * @param text the item, as the combo box shows it, or its start
+	 */
+	public void chooseInCombo(JComboBox<?> combo, String text, int moveMs) {
+		int[] index = { -1 };
+		List<String> items = new ArrayList<>();
+		onEdt(() -> {
+			for (int i = 0; i < combo.getItemCount(); i++) {
+				String s = String.valueOf(combo.getItemAt(i));
+				items.add(s);
+				if (index[0] < 0 && s.startsWith(text)) index[0] = i;
+			}
+		});
+		if (index[0] < 0) throw new IllegalArgumentException("No item '" + text + "' in the combo box: " + items);
+		clickOn(combo, combo.getWidth() - 12, combo.getHeight() / 2, moveMs);
+		JPopupMenu[] popup = { null };
+		JList<?>[] list = { null };
+		onEdt(() -> {
+			if (!combo.isPopupVisible()) combo.showPopup();
+			Object child = combo.getUI().getAccessibleChild(combo, 0);
+			if (!(child instanceof ComboPopup) || !(child instanceof JPopupMenu)) {
+				throw new IllegalStateException("No popup list for " + combo + ": " + child);
+			}
+			popup[0] = (JPopupMenu) child;
+			list[0] = ((ComboPopup) child).getList();
+			list[0].ensureIndexIsVisible(index[0]);
+		});
+		camera.showPopup(popup[0], combo);
+		camera.shoot(CLICK_MS * 2);
+		// where the item is, in the coordinates of the combo box (the list opens next to it on the screen)
+		Point[] item = { null };
+		onEdt(() -> {
+			Rectangle cell = list[0].getCellBounds(index[0], index[0]);
+			item[0] = SwingUtilities.convertPoint(list[0], cell.x + 30, cell.y + cell.height / 2, combo);
+		});
+		Point to = locate(combo, item[0].x, item[0].y);
+		glideTo(to, moveMs, () -> list[0].setSelectedIndex(index[0]));
+		camera.shoot(CLICK_MS * 2);
+		Point f = filmPosition();
+		Timeline.recordClick("mouse.click", Timeline.now(), f.x, f.y, modifierNames());
+		onEdt(() -> {
+			combo.setSelectedIndex(index[0]);
+			combo.hidePopup();
+		});
+		camera.hidePopup(popup[0]);
+		camera.shoot(CLICK_MS);
 	}
 
 	/** A caret that blinks makes the frames depend on time: it stays on. */
@@ -367,6 +568,28 @@ public final class VirtualPointer {
 		return SwingUtilities.convertPoint(f.root, inPainted.x - f.at.x, inPainted.y - f.at.y, c);
 	}
 
+	/**
+	 * Turns the mouse wheel where the pointer is, {@code notches} clicks (negative: away from the user, which zooms
+	 * in a viewer), a frame of {@code msPerNotch} after each.
+	 */
+	public void wheel(int notches, int msPerNotch) {
+		int step = notches < 0 ? -1 : 1;
+		for (int i = 0; i < Math.abs(notches); i++) {
+			int mods = modifiers;
+			Point p = new Point(position);
+			SwingUtilities.invokeLater(() -> {
+				Object[] hit = hit(p);
+				Component receiver = (Component) hit[0];
+				Point at = (Point) hit[1];
+				Point screen = new Point(at);
+				if (receiver.isShowing()) SwingUtilities.convertPointToScreen(screen, receiver);
+				receiver.dispatchEvent(new MouseWheelEvent(receiver, MouseEvent.MOUSE_WHEEL, System.currentTimeMillis(),
+						mods, at.x, at.y, screen.x, screen.y, 0, false, MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, step));
+			});
+			camera.shoot(msPerNotch);
+		}
+	}
+
 	private static void dispatch(Component receiver, int id, Point at, int mods, int clickCount, int eventButton) {
 		Point screen = new Point(at);
 		if (receiver.isShowing()) SwingUtilities.convertPointToScreen(screen, receiver);
@@ -377,9 +600,9 @@ public final class VirtualPointer {
 	private void key(int id, int keyCode, char c) {
 		int mods = modifiers;
 		onEdt(() -> {
-			KeyEvent e = new KeyEvent(target, id, System.currentTimeMillis(), mods, keyCode, c);
+			KeyEvent e = new KeyEvent(keyTarget, id, System.currentTimeMillis(), mods, keyCode, c);
 			for (KeyEventDispatcher d : keyDispatchers) d.dispatchKeyEvent(e);
-			for (KeyListener l : target.getKeyListeners()) {
+			for (KeyListener l : keyTarget.getKeyListeners()) {
 				if (id == KeyEvent.KEY_PRESSED) l.keyPressed(e);
 				else l.keyReleased(e);
 			}

@@ -189,7 +189,7 @@ public class Step {
 		// Resolve the last narration line's end stamp *before* the ffmpeg
 		// shutdown wait + screenshot, so its duration reflects the visible dwell
 		// at the end of the step, not the recorder cleanup.
-		Timeline.resolvePending(System.currentTimeMillis());
+		Timeline.resolvePending(Timeline.now());
 		if (AUTO_SNAP_END) Screenshotter.ofRecordingArea(currentName);
 		ScreenRecorder.stop();
 		// Feed the clip's resolved first-frame anchor into Timeline (no-op when

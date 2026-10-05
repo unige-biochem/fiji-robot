@@ -39,6 +39,7 @@ import java.nio.file.Files;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.LongSupplier;
 
 /**
  * Single per-session output file, {@code timeline.json}: the machine-readable
@@ -96,6 +97,29 @@ public class Timeline {
 	public static String FILENAME = "timeline.json";
 
 	public static final int VERSION = 4;
+
+	/** The wall clock: the default {@link #clock}, for screen recordings. */
+	public static final LongSupplier WALL_CLOCK = System::currentTimeMillis;
+
+	/**
+	 * Where the times of the steps, narration and gestures are read, in milliseconds. The wall clock for a screen
+	 * recording; for a film painted frame by frame (see {@code widgets.StopMotion}), the time of the film, which
+	 * advances by the duration of each frame, whatever the time the program takes to paint it: the timeline then
+	 * follows the clips, and two runs write the same file (the {@code startedAt} of the steps is left out).
+	 */
+	public static LongSupplier clock = WALL_CLOCK;
+
+	/**
+	 * The frame the coordinates of the events are in, written as {@code recordingBounds}; {@code null}: the
+	 * recorded area of the screen ({@link Ui#recordingBoundsLogical()}). A painted film sets the size of its
+	 * frames, the events being in their pixels.
+	 */
+	public static Rectangle recordingBounds;
+
+	/** The time on the {@link #clock}. */
+	public static long now() {
+		return clock.getAsLong();
+	}
 
 	/**
 	 * Label written to {@code script.note} when a step has no executable Groovy
@@ -289,11 +313,11 @@ public class Timeline {
 	 * {@link #setFirstFrameAnchor(long)} at {@link #endStep()}.
 	 */
 	static void beginStep(String slug, String description) {
-		flushPending(System.currentTimeMillis());
+		flushPending(now());
 		int index = ++clipCounter;
 		String safe = slug.replaceAll("[^A-Za-z0-9._-]+", "_");
 		String clip = String.format("%03d-%s.mp4", index, safe);
-		current = new StepRecord(index, slug, clip, description, System.currentTimeMillis());
+		current = new StepRecord(index, slug, clip, description, now());
 		steps.add(current);
 	}
 
@@ -309,7 +333,7 @@ public class Timeline {
 
 	/** Record a narration sub-step; its end time is filled in by the next {@code comment} / {@code endStep}. */
 	static void comment(String text) {
-		long now = System.currentTimeMillis();
+		long now = now();
 		flushPending(now);
 		pending = new PendingComment(now, text);
 	}
@@ -321,7 +345,7 @@ public class Timeline {
 
 	/** Finalise the open step and rewrite {@code timeline.json}. */
 	static void endStep() {
-		flushPending(System.currentTimeMillis());
+		flushPending(now());
 		current = null;
 		flush();
 	}
@@ -385,13 +409,13 @@ public class Timeline {
 	/** Release the camera back to the full recorded frame. */
 	static void focusClear() {
 		if (!ENABLED || current == null) return;
-		current.events.add(new Evt("focus.clear", System.currentTimeMillis(),
+		current.events.add(new Evt("focus.clear", now(),
 				0, 0, null, null, null, null, null, null, null, null, null, null));
 	}
 
 	private static void addFocus(String type, String label, int x, int y, int w, int h) {
 		if (!ENABLED || current == null) return;
-		current.events.add(new Evt(type, System.currentTimeMillis(),
+		current.events.add(new Evt(type, now(),
 				x, y, null, null, null, null, null, null, null, w, h, label));
 	}
 
@@ -405,6 +429,42 @@ public class Timeline {
 		if (!ENABLED || current == null) return;
 		Point p = cursor();
 		addEvent("key.press", p.x, p.y, null, null, null, null, modifiers, key);
+	}
+
+	// --- Gestures of a painted film: no screen, no cursor, explicit times -----
+
+	/** The clip of the open step ({@code "NNN-slug.mp4"}), or null outside a step. */
+	public static String currentClip() {
+		return current == null ? null : current.clip;
+	}
+
+	/**
+	 * Records a click ({@code "mouse.click"}, {@code "mouse.right_click"}, {@code "mouse.double_click"}) at
+	 * {@code atMs} on the {@link #clock}, at x, y in the {@link #recordingBounds}: for gestures that are not the
+	 * real mouse's (a pointer drawn into a painted film).
+	 */
+	public static void recordClick(String type, long atMs, int x, int y, List<String> modifiers) {
+		record(new Evt(type, atMs, x, y, null, null, null, null, modifiers, null, null, null, null, null));
+	}
+
+	/** Records a drag pressed at {@code atMs}, from x, y to endX, endY, through {@code path} (may be null). */
+	public static void recordDrag(long atMs, int x, int y, int endX, int endY, List<String> modifiers,
+	                              List<int[]> path) {
+		record(new Evt("mouse.drag", atMs, x, y, endX, endY, null, path == null ? null : path.size(), modifiers,
+				null, path, null, null, null));
+	}
+
+	/** Records a key typed at {@code atMs} ({@code key} as {@code "A"}, {@code "Delete"}), shown near x, y. */
+	public static void recordKey(long atMs, String key, int x, int y, List<String> modifiers) {
+		record(new Evt("key.press", atMs, x, y, null, null, null, null, modifiers, key, null, null, null, null));
+	}
+
+	/** Adds an event in the order of the times: a drag is recorded once released, but happened at its press. */
+	private static void record(Evt e) {
+		if (!ENABLED || current == null) return;
+		int i = current.events.size();
+		while (i > 0 && current.events.get(i - 1).wallMs > e.wallMs) i--;
+		current.events.add(i, e);
 	}
 
 	/** Current cursor location, or {@code (0,0)} when headless / unavailable. */
@@ -440,7 +500,7 @@ public class Timeline {
 								 Integer points, List<String> modifiers, String key,
 								 List<int[]> path) {
 		if (!ENABLED || current == null) return;
-		current.events.add(new Evt(type, System.currentTimeMillis(),
+		current.events.add(new Evt(type, now(),
 				x, y, endX, endY, notches, points, modifiers, key, path,
 				null, null, null));
 	}
@@ -462,7 +522,7 @@ public class Timeline {
 	public static void flush() {
 		if (!ENABLED) return;
 		File f = new File(Assets.dir(), FILENAME);
-		Rectangle b = Ui.recordingBoundsLogical();
+		Rectangle b = recordingBounds != null ? recordingBounds : Ui.recordingBoundsLogical();
 		StringBuilder sb = new StringBuilder();
 		sb.append("{\n");
 		sb.append("  \"version\": ").append(VERSION).append(",\n");
@@ -501,8 +561,10 @@ public class Timeline {
 		sb.append("      \"clip\": ").append(jsonStr(s.clip)).append(",\n");
 		sb.append("      \"description\": ").append(jsonStr(s.description)).append(",\n");
 		if (scriptSource != null) appendStepScript(sb, s.slug);
-		sb.append("      \"startedAt\": ")
-				.append(jsonStr(Instant.ofEpochMilli(s.startedAtWallMs).toString())).append(",\n");
+		if (clock == WALL_CLOCK) {
+			sb.append("      \"startedAt\": ")
+					.append(jsonStr(Instant.ofEpochMilli(s.startedAtWallMs).toString())).append(",\n");
+		}
 
 		sb.append("      \"comments\": [");
 		for (int i = 0; i < s.comments.size(); i++) {

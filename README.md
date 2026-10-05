@@ -194,6 +194,28 @@ ring while a button is pressed, the keys held, and the popup menu opened on the
 component. Each frame lasts the time the script gives it, whatever the time the
 program took to reach it.
 
+A **painted video** (the clips of a tutorial, for fiji-auto-tuto) films whole
+windows the same way, on a desktop of a chroma-key color, and writes the
+gestures to `timeline.json` on the clock of the film:
+
+```java
+StopMotion camera = new StopMotion(film, frame.getRootPane(), new Rectangle(-160, -80, 1920, 1080), 1)
+        .onDesktop(new Color(0x8C16DB), frame.getTitle());       // the window under a drawn title bar
+Timeline.clock = camera::time;                                     // times of the film, not of the wall
+Timeline.recordingBounds = new Rectangle(0, 0, 1920, 1080);        // positions in pixels of the frames
+VirtualPointer pointer = camera.pointer(frame.getRootPane(), new Point(800, 500));
+pointer.chooseInMenuBar(frame.getJMenuBar(), "Import", "Open Demo Slices From ZENODO");
+camera.showWindow(dialog, new Point(600, 300));                    // a dialog it opened, where the film puts it
+new PaintedDialog(dialog, pointer).set("Slice channels", "0").set("Ensemble", false).ok();
+film.writeMp4(new File("001-import.mp4"), 30);                     // a clip lasting the film exactly
+```
+
+The camera paints the menu cascades where they open, the list of a combo box
+next to it, and AWT windows (an ImageJ image) with their own title bar;
+`VirtualPointer` records its clicks, drags and keys with `Timeline.recordClick`,
+`recordDrag` and `recordKey`. `PaintedDialog` fills a SciJava dialog by its
+labels, as `Harvester` does with the real mouse.
+
 `core.InMemoryPreferences` keeps `java.util.prefs` in memory, empty at start:
 a Fiji started with
 `-Djava.util.prefs.PreferencesFactory=ch.unige.biochem.fiji.robot.core.InMemoryPreferences`
@@ -306,6 +328,7 @@ mvn test -Dtest=ActiveImageRenderTest        # object-valued render with no imag
 mvn test -Dtest=TreeLauncherRenderTest       # the bdv "sources" contribution
 mvn test -Dtest=PainterTest                  # painting components and closed menus offscreen
 mvn test -Dtest=StopMotionTest              # synthetic events, filmed frames, GIF and MP4 (ffmpeg if on the PATH)
+mvn test -Dtest=PaintedVideoTest            # a menu cascade and a dialog filmed on a desktop (needs a display, not the mouse)
 mvn test -Dtest=InMemoryPreferencesTest      # the in-memory preference nodes
 
 # GUI (run locally; each boots its own ImageJ gateway and drives the screen):

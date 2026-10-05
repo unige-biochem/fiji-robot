@@ -103,10 +103,14 @@ public final class Film {
 				+ "[b][p]paletteuse=dither=none:diff_mode=rectangle", "-loop", "0");
 	}
 
-	/** Writes an H.264 MP4 at {@code fps} frames per second (frames are repeated to keep their durations). */
+	/**
+	 * Writes an H.264 MP4 at {@code fps} frames per second (frames are repeated to keep their durations), lasting
+	 * {@link #duration()}: a time of the film is the same time of the clip (a timeline follows it).
+	 */
 	public File writeMp4(File mp4, int fps) {
 		return encode(mp4, "pad=ceil(iw/2)*2:ceil(ih/2)*2,fps=" + fps + ",format=yuv420p",
-				"-c:v", "libx264", "-preset", "slow", "-crf", "20", "-movflags", "+faststart");
+				"-c:v", "libx264", "-preset", "slow", "-crf", "20", "-movflags", "+faststart",
+				"-t", String.format(Locale.ROOT, "%.3f", duration() / 1000.0));
 	}
 
 	private File encode(File out, String filter, String... options) {

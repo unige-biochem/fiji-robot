@@ -197,8 +197,16 @@ Done:
   `KeyEventDispatcher`s (`bdv.view.BdvViewer.keyEventDispatcher` for BDV
   behaviours); popup menu items chosen by text. Frames painted with their
   duration (stop motion), pointer / pressed ring / keys / open popup drawn, then
-  ffmpeg to GIF or MP4. Headless `StopMotionTest`. Not connected to `Step` /
-  `Timeline` yet: a film is not a clip of `timeline.json`.
+  ffmpeg to GIF or MP4. Headless `StopMotionTest`.
+- **Painted video** (branch `painted-video`): films are the clips of a
+  `timeline.json`. `Timeline.clock` (the film's time; `startedAt` left out off
+  the wall clock) and `Timeline.recordingBounds`; `recordClick` / `recordDrag` /
+  `recordKey` with explicit times, used by `VirtualPointer`. `StopMotion.onDesktop`
+  (a whole window on a chroma-key desktop), `cut` (the next clip), `showPopup`
+  (a combo box list), AWT windows shown; `VirtualPointer.chooseInMenuBar`,
+  `chooseInCombo`, `wheel`, `setKeyTarget`; `PaintedDialog`; `Film.writeMp4`
+  lasts the film. `PaintedVideoTest` (needs a display). Used by abba-doc-assets'
+  `GenerateTutorialVideo`.
 
 ## TODO (roughly in priority order)
 
