@@ -145,6 +145,11 @@ public final class StopMotion {
 		return timeBefore + film.duration();
 	}
 
+	/** The frames, in their pixels: {@code 0, 0} to their width and height. */
+	public Rectangle frameBounds() {
+		return new Rectangle(0, 0, (int) Math.round(region.width * scale), (int) Math.round(region.height * scale));
+	}
+
 	/** Where a point of a component (of the painted one, or a descendant) is on the frames, in their pixels. */
 	public Point filmPoint(Component c, Point p) {
 		Point inPainted = c == painted ? new Point(p) : SwingUtilities.convertPoint(c, p, painted);

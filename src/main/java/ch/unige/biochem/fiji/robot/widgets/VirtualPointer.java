@@ -174,9 +174,19 @@ public final class VirtualPointer {
 	/** Presses a button ({@link MouseEvent#BUTTON1}...), with the modifier keys held. */
 	public void press(int mouseButton) {
 		if (button != 0) throw new IllegalStateException("A button is already pressed");
+		Point at = filmPosition();
+		Rectangle frame = camera.frameBounds();
+		Point inPainted = SwingUtilities.convertPoint(target, position, camera.painted());
+		boolean onWindow = new Rectangle(0, 0, camera.painted().getWidth(), camera.painted().getHeight()).contains(inPainted)
+				|| camera.floatingAt(inPainted) != null;
+		if (!frame.contains(at) || !onWindow) {
+			// what is pressed is not in the film, or not on a window of it: scrolled out of view, out of the window
+			throw new IllegalStateException("Press at " + at.x + ", " + at.y + " of the frames, "
+					+ (frame.contains(at) ? "on no window" : "out of the frames") + ": is it scrolled out of view?");
+		}
 		button = mouseButton;
 		pressTime = Timeline.now();
-		pressAt = filmPosition();
+		pressAt = at;
 		dragPath.clear();
 		send(MouseEvent.MOUSE_PRESSED, 1, mouseButton);
 		camera.shoot(CLICK_MS);
@@ -384,15 +394,23 @@ public final class VirtualPointer {
 	 * {@link StopMotion#showWindow}) in {@code moveMs}, and clicks it with the left button.
 	 */
 	public void clickOn(Component c, int moveMs) {
-		if (c instanceof JTextComponent) steadyCaret((JTextComponent) c);
-		Point p = locate(c, c.getWidth() / 2, c.getHeight() / 2);
-		moveTo(p.x, p.y, moveMs);
-		click(MouseEvent.BUTTON1);
+		clickOn(c, c.getWidth() / 2, c.getHeight() / 2, moveMs);
 	}
 
-	/** Moves to a point of a component in {@code moveMs}, and clicks it with the left button. */
+	/**
+	 * Moves to a point of a component in {@code moveMs}, and clicks it with the left button. The point must be
+	 * visible: a component scrolled out of view, or cut by its window, is scrolled into view first.
+	 */
 	public void clickOn(Component c, int x, int y, int moveMs) {
 		if (c instanceof JTextComponent) steadyCaret((JTextComponent) c);
+		if (c instanceof javax.swing.JComponent) {
+			Rectangle[] visible = { null };
+			onEdt(() -> visible[0] = ((javax.swing.JComponent) c).getVisibleRect());
+			if (!visible[0].contains(x, y)) {
+				throw new IllegalStateException("Click at " + x + ", " + y + " of " + c.getClass().getSimpleName()
+						+ ", out of its visible part " + visible[0] + ": scroll it into view first");
+			}
+		}
 		Point p = locate(c, x, y);
 		moveTo(p.x, p.y, moveMs);
 		click(MouseEvent.BUTTON1);
@@ -582,6 +600,27 @@ public final class VirtualPointer {
 				Object[] hit = hit(p);
 				Component receiver = (Component) hit[0];
 				Point at = (Point) hit[1];
+				Point screen = new Point(at);
+				if (receiver.isShowing()) SwingUtilities.convertPointToScreen(screen, receiver);
+				dispatchUnrecorded(receiver, new MouseWheelEvent(receiver, MouseEvent.MOUSE_WHEEL, System.currentTimeMillis(),
+						mods, at.x, at.y, screen.x, screen.y, 0, false, MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, step));
+			});
+			camera.shoot(msPerNotch);
+		}
+	}
+
+	/**
+	 * Turns the mouse wheel over a component that gets it, not the deepest one under the pointer: a scroll pane
+	 * that holds tables or lists, which would scroll themselves. The pointer stays where it is (over the
+	 * component).
+	 */
+	public void wheel(int notches, int msPerNotch, Component receiver) {
+		int step = notches < 0 ? -1 : 1;
+		for (int i = 0; i < Math.abs(notches); i++) {
+			int mods = modifiers;
+			Point p = new Point(position);
+			SwingUtilities.invokeLater(() -> {
+				Point at = toComponent(p, receiver);
 				Point screen = new Point(at);
 				if (receiver.isShowing()) SwingUtilities.convertPointToScreen(screen, receiver);
 				dispatchUnrecorded(receiver, new MouseWheelEvent(receiver, MouseEvent.MOUSE_WHEEL, System.currentTimeMillis(),
