@@ -242,9 +242,17 @@ public final class VirtualPointer {
 	 * {@link StopMotion#showWindow}) in {@code moveMs}, and clicks it with the left button.
 	 */
 	public void clickOn(Component c, int moveMs) {
+		if (c instanceof JTextComponent) steadyCaret((JTextComponent) c);
 		Point p = locate(c, c.getWidth() / 2, c.getHeight() / 2);
 		moveTo(p.x, p.y, moveMs);
 		click(MouseEvent.BUTTON1);
+	}
+
+	/** A caret that blinks makes the frames depend on time: it stays on. */
+	private static void steadyCaret(JTextComponent field) {
+		onEdt(() -> {
+			if (field.getCaret() != null) field.getCaret().setBlinkRate(0);
+		});
 	}
 
 	/** Where a point of a component is, in the coordinates of the target (through the windows the camera shows). */
@@ -269,6 +277,7 @@ public final class VirtualPointer {
 	 * field (a number of a spinner) commits its value at the end, as when the field loses the focus.
 	 */
 	public void typeInto(JTextComponent field, String text, int msPerChar) {
+		steadyCaret(field);
 		onEdt(field::selectAll);
 		camera.shoot(CLICK_MS * 2);
 		for (int i = 1; i <= text.length(); i++) {
