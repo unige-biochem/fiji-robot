@@ -218,6 +218,8 @@ public class Timeline {
 		final List<int[]> path;
 		final Integer w, h;
 		final String label;
+		/** For a drag, when it was released ({@code endMs}); null when unknown (a drag of the real mouse). */
+		Long endWallMs;
 		Evt(String type, long wallMs, int x, int y,
 			Integer endX, Integer endY, Integer notches, Integer points,
 			List<String> modifiers, String key, List<int[]> path,
@@ -450,8 +452,19 @@ public class Timeline {
 	/** Records a drag pressed at {@code atMs}, from x, y to endX, endY, through {@code path} (may be null). */
 	public static void recordDrag(long atMs, int x, int y, int endX, int endY, List<String> modifiers,
 	                              List<int[]> path) {
-		record(new Evt("mouse.drag", atMs, x, y, endX, endY, null, path == null ? null : path.size(), modifiers,
-				null, path, null, null, null));
+		recordDrag(atMs, -1, x, y, endX, endY, modifiers, path);
+	}
+
+	/**
+	 * Records a drag pressed at {@code atMs} and released at {@code endMs} (written as the event's {@code endMs}, so
+	 * that a highlight can follow the drag; negative: unknown), from x, y to endX, endY, through {@code path}.
+	 */
+	public static void recordDrag(long atMs, long endMs, int x, int y, int endX, int endY, List<String> modifiers,
+	                              List<int[]> path) {
+		Evt e = new Evt("mouse.drag", atMs, x, y, endX, endY, null, path == null ? null : path.size(), modifiers,
+				null, path, null, null, null);
+		if (endMs >= 0) e.endWallMs = endMs;
+		record(e);
 	}
 
 	/** Records a key typed at {@code atMs} ({@code key} as {@code "A"}, {@code "Delete"}), shown near x, y. */
@@ -595,6 +608,9 @@ public class Timeline {
 			}
 			if (ev.endX != null) {
 				sb.append(",\"endX\":").append(ev.endX).append(",\"endY\":").append(ev.endY);
+			}
+			if (ev.endWallMs != null) {
+				sb.append(",\"endMs\":").append(Math.max(t, ev.endWallMs - anchor));
 			}
 			if (ev.notches != null) {
 				sb.append(",\"notches\":").append(ev.notches);

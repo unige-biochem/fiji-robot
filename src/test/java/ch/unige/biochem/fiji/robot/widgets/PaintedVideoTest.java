@@ -156,6 +156,11 @@ public class PaintedVideoTest {
 		assertFalse("no wall clock in a painted timeline", json.contains("startedAt"));
 		// the click and drag are where the frames show the pointer
 		assertTrue(json, json.contains("\"x\":300,\"y\":210,\"endX\":350,\"endY\":240"));
+		// the drag lasts its 200 ms of moves and the frame of its press (160 ms): released 360 ms after its press
+		java.util.regex.Matcher drag = java.util.regex.Pattern
+				.compile("\"type\":\"mouse.drag\",\"tMs\":([0-9]+),.*?\"endMs\":([0-9]+)").matcher(json);
+		assertTrue(json, drag.find());
+		assertEquals(json, 360, Long.parseLong(drag.group(2)) - Long.parseLong(drag.group(1)));
 		// recorded once: the synthetic events are hidden from the recorder of the real mouse
 		assertEquals(json, 1, json.split("\"type\":\"mouse.drag\"", -1).length - 1);
 		// the menu of the bar opened, the item chosen

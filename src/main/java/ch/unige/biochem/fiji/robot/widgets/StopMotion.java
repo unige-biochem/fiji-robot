@@ -343,14 +343,18 @@ public final class StopMotion {
 	}
 
 	/** A window's content at x, y, under a drawn title bar, with a frame and a shadow. */
+	/** Colors of the title bar drawn above a window: light by default; dark ones for a dark look and feel. */
+	public static Color TITLE_BAR_BACKGROUND = new Color(238, 238, 238), TITLE_BAR_FOREGROUND = new Color(40, 40, 40),
+			WINDOW_BORDER = new Color(150, 150, 150);
+
 	private static void drawWindow(Graphics2D g, BufferedImage content, int x, int y, String title, double scale) {
 		int bar = (int) Math.round(TITLE_BAR_HEIGHT * scale);
 		int w = content.getWidth(), h = content.getHeight();
 		g.setColor(new Color(0, 0, 0, 60));
 		g.fillRect(x + 4, y - bar + 4, w, h + bar); // shadow
-		g.setColor(new Color(238, 238, 238));
+		g.setColor(TITLE_BAR_BACKGROUND);
 		g.fillRect(x, y - bar, w, bar);
-		g.setColor(new Color(40, 40, 40));
+		g.setColor(TITLE_BAR_FOREGROUND);
 		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 		g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, (int) Math.round(13 * scale)));
 		FontMetrics fm = g.getFontMetrics();
@@ -359,7 +363,7 @@ public final class StopMotion {
 		g.drawString(title == null ? "" : title, x + (int) (10 * scale), y - bar + (bar + fm.getAscent() - fm.getDescent()) / 2);
 		g.setClip(clip);
 		g.drawImage(content, x, y, null);
-		g.setColor(new Color(150, 150, 150));
+		g.setColor(WINDOW_BORDER);
 		g.drawRect(x - 1, y - bar - 1, w + 1, h + bar + 1);
 	}
 

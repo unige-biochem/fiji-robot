@@ -232,7 +232,7 @@ public final class VirtualPointer {
 			List<String> mods = modifierNames();
 			// a drag with the right button: fiji-auto-tuto reads it from "meta", as Swing reports it
 			if (b == MouseEvent.BUTTON3 && !mods.contains("meta")) mods.add("meta");
-			Timeline.recordDrag(pressTime, pressAt.x, pressAt.y, releaseAt.x, releaseAt.y, mods,
+			Timeline.recordDrag(pressTime, Timeline.now(), pressAt.x, pressAt.y, releaseAt.x, releaseAt.y, mods,
 					new ArrayList<>(dragPath));
 		}
 		send(MouseEvent.MOUSE_RELEASED, 1, b);
