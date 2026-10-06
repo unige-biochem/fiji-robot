@@ -321,6 +321,26 @@ public final class VirtualPointer {
 	 */
 	public void chooseInMenuBar(JMenuBar bar, String... path) {
 		if (path.length < 2) throw new IllegalArgumentException("A menu and an item at least: " + String.join(" > ", path));
+		menuBarPath(bar, true, path);
+	}
+
+	/**
+	 * Opens a menu of a menu bar and goes down the submenus of the {@code path}, as {@link #chooseInMenuBar}, but
+	 * chooses nothing: the last item stays highlighted (its submenu open, if it is a menu), to show what a menu
+	 * holds. {@link #closeMenus} closes them.
+	 */
+	public void openInMenuBar(JMenuBar bar, String... path) {
+		if (path.length < 1) throw new IllegalArgumentException("No menu to open");
+		menuBarPath(bar, false, path);
+	}
+
+	/** Closes the menus open, as a click elsewhere or Escape. */
+	public void closeMenus() {
+		onEdt(() -> MenuSelectionManager.defaultManager().clearSelectedPath());
+		camera.shoot(CLICK_MS);
+	}
+
+	private void menuBarPath(JMenuBar bar, boolean choose, String... path) {
 		List<MenuElement> selection = new ArrayList<>();
 		selection.add(bar);
 		JMenu menu = null;
@@ -345,6 +365,9 @@ public final class VirtualPointer {
 				if (!(item instanceof JMenu)) throw new IllegalArgumentException("'" + text + "' is not a menu");
 				selection.add(((JMenu) item).getPopupMenu());
 			}
+			else if (!choose && item instanceof JMenu) {
+				selection.add(((JMenu) item).getPopupMenu()); // shown open
+			}
 			MenuElement[] sel = selection.toArray(new MenuElement[0]);
 			if (i == 0) {
 				// the menu of the bar opens with a click, once the pointer is on it
@@ -362,10 +385,33 @@ public final class VirtualPointer {
 				camera.shoot(CLICK_MS * 2);
 				menu = (JMenu) item;
 			}
-			else {
+			else if (choose) {
 				clickMenuItem(item);
 			}
+			else {
+				camera.shoot(CLICK_MS * 2);
+			}
 		}
+	}
+
+	private static boolean realInputBlocked;
+
+	/**
+	 * Drops the mouse and key events of the real mouse and keyboard, in the whole application, for good: a film
+	 * acts with synthetic events dispatched to the components, never posted to the event queue, so whatever comes
+	 * through the queue is the real input, and only spoils the film (a menu opening under the real pointer resting
+	 * there selects an item of its own).
+	 */
+	public static synchronized void blockRealInput() {
+		if (realInputBlocked) return;
+		realInputBlocked = true;
+		java.awt.Toolkit.getDefaultToolkit().getSystemEventQueue().push(new java.awt.EventQueue() {
+			@Override
+			protected void dispatchEvent(java.awt.AWTEvent e) {
+				if (e instanceof MouseEvent || e instanceof KeyEvent) return;
+				super.dispatchEvent(e);
+			}
+		});
 	}
 
 	private static JMenu menuOfBar(JMenuBar bar, String text) {
