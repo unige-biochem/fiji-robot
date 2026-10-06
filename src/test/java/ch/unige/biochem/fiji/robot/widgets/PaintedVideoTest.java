@@ -158,7 +158,8 @@ public class PaintedVideoTest {
 		assertTrue(json, json.contains("\"x\":300,\"y\":210,\"endX\":350,\"endY\":240"));
 		// recorded once: the synthetic events are hidden from the recorder of the real mouse
 		assertEquals(json, 1, json.split("\"type\":\"mouse.drag\"", -1).length - 1);
-		assertEquals(json, 1, json.split("\"type\":\"mouse.click\"", -1).length - 1);
+		// the menu of the bar opened, the item chosen
+		assertEquals(json, 2, json.split("\"type\":\"mouse.click\"", -1).length - 1);
 	}
 
 	@Test

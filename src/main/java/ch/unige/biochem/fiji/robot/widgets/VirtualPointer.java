@@ -171,9 +171,31 @@ public final class VirtualPointer {
 		send(button == 0 ? MouseEvent.MOUSE_MOVED : MouseEvent.MOUSE_DRAGGED, 0, 0);
 	}
 
+	private Runnable beforeAction, afterAction;
+
+	/**
+	 * Runs {@code before} just before each action (a press, a key, a menu opened or an item chosen, text typed, the
+	 * wheel) and {@code after} just after it: a film can wait there for its narration to be read before acting,
+	 * and leave the viewer a beat to see what the action did. Null: nothing.
+	 */
+	public VirtualPointer setActionHooks(Runnable before, Runnable after) {
+		this.beforeAction = before;
+		this.afterAction = after;
+		return this;
+	}
+
+	private void beforeAction() {
+		if (beforeAction != null) beforeAction.run();
+	}
+
+	private void afterAction() {
+		if (afterAction != null) afterAction.run();
+	}
+
 	/** Presses a button ({@link MouseEvent#BUTTON1}...), with the modifier keys held. */
 	public void press(int mouseButton) {
 		if (button != 0) throw new IllegalStateException("A button is already pressed");
+		beforeAction();
 		Point at = filmPosition();
 		Rectangle frame = camera.frameBounds();
 		Point inPainted = SwingUtilities.convertPoint(target, position, camera.painted());
@@ -207,12 +229,16 @@ public final class VirtualPointer {
 					pressAt.x, pressAt.y, modifierNames());
 		}
 		else {
-			Timeline.recordDrag(pressTime, pressAt.x, pressAt.y, releaseAt.x, releaseAt.y, modifierNames(),
+			List<String> mods = modifierNames();
+			// a drag with the right button: fiji-auto-tuto reads it from "meta", as Swing reports it
+			if (b == MouseEvent.BUTTON3 && !mods.contains("meta")) mods.add("meta");
+			Timeline.recordDrag(pressTime, pressAt.x, pressAt.y, releaseAt.x, releaseAt.y, mods,
 					new ArrayList<>(dragPath));
 		}
 		send(MouseEvent.MOUSE_RELEASED, 1, b);
 		if (click) send(MouseEvent.MOUSE_CLICKED, 1, b);
 		camera.shoot(CLICK_MS);
+		afterAction();
 	}
 
 	/** Presses and releases a button where the pointer is. */
@@ -274,12 +300,14 @@ public final class VirtualPointer {
 	 * real click. Queued, not waited for: an item that opens a modal dialog must not block the film.
 	 */
 	private void clickMenuItem(JMenuItem item) {
+		beforeAction();
 		camera.shoot(CLICK_MS * 3);
 		Point f = filmPosition();
 		Timeline.recordClick("mouse.click", Timeline.now(), f.x, f.y, modifierNames());
 		onEdt(() -> MenuSelectionManager.defaultManager().clearSelectedPath());
 		SwingUtilities.invokeLater(() -> item.doClick(0));
 		onEdt(() -> { }); // the click happened before the next frame
+		afterAction();
 	}
 
 	/** How long the pointer takes from a menu to the next one of a path. */
@@ -318,7 +346,18 @@ public final class VirtualPointer {
 				selection.add(((JMenu) item).getPopupMenu());
 			}
 			MenuElement[] sel = selection.toArray(new MenuElement[0]);
-			glideTo(to[0], MENU_MOVE_MS, () -> MenuSelectionManager.defaultManager().setSelectedPath(sel));
+			if (i == 0) {
+				// the menu of the bar opens with a click, once the pointer is on it
+				glideTo(to[0], MENU_MOVE_MS, null);
+				beforeAction();
+				Point f = filmPosition();
+				Timeline.recordClick("mouse.click", Timeline.now(), f.x, f.y, modifierNames());
+				onEdt(() -> MenuSelectionManager.defaultManager().setSelectedPath(sel));
+				camera.shoot(CLICK_MS);
+			}
+			else {
+				glideTo(to[0], MENU_MOVE_MS, () -> MenuSelectionManager.defaultManager().setSelectedPath(sel));
+			}
 			if (!last) {
 				camera.shoot(CLICK_MS * 2);
 				menu = (JMenu) item;
@@ -380,6 +419,7 @@ public final class VirtualPointer {
 	 * shot after the key).
 	 */
 	public void type(int keyCode, String label, int shownMs) {
+		beforeAction();
 		camera.setKeys(label);
 		Point f = filmPosition();
 		Timeline.recordKey(Timeline.now(), KeyEvent.getKeyText(keyCode), f.x, f.y, modifierNames());
@@ -387,6 +427,7 @@ public final class VirtualPointer {
 		key(KeyEvent.KEY_RELEASED, keyCode, KeyEvent.CHAR_UNDEFINED);
 		camera.shoot(shownMs);
 		camera.setKeys(heldLabel);
+		afterAction();
 	}
 
 	/**
@@ -466,6 +507,7 @@ public final class VirtualPointer {
 		});
 		camera.hidePopup(popup[0]);
 		camera.shoot(CLICK_MS);
+		afterAction();
 	}
 
 	/** A caret that blinks makes the frames depend on time: it stays on. */
@@ -497,6 +539,7 @@ public final class VirtualPointer {
 	 * field (a number of a spinner) commits its value at the end, as when the field loses the focus.
 	 */
 	public void typeInto(JTextComponent field, String text, int msPerChar) {
+		beforeAction();
 		steadyCaret(field);
 		onEdt(field::selectAll);
 		camera.shoot(CLICK_MS * 2);
@@ -515,6 +558,7 @@ public final class VirtualPointer {
 				}
 			});
 		}
+		afterAction();
 	}
 
 	/**
@@ -593,6 +637,7 @@ public final class VirtualPointer {
 	 */
 	public void wheel(int notches, int msPerNotch) {
 		int step = notches < 0 ? -1 : 1;
+		if (notches != 0) beforeAction();
 		for (int i = 0; i < Math.abs(notches); i++) {
 			int mods = modifiers;
 			Point p = new Point(position);
