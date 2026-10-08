@@ -558,10 +558,13 @@ public final class VirtualPointer {
 		camera.shoot(CLICK_MS * 2);
 		Point f = filmPosition();
 		Timeline.recordClick("mouse.click", Timeline.now(), f.x, f.y, modifierNames());
-		onEdt(() -> {
-			combo.setSelectedIndex(index[0]);
+		// later, as a click is: a listener of the combo box may open a modal dialog (a wait), which would block here.
+		// The task queued after it runs once it returns, or in the event loop of that dialog
+		SwingUtilities.invokeLater(() -> {
 			combo.hidePopup();
+			combo.setSelectedIndex(index[0]);
 		});
+		onEdt(() -> { });
 		camera.hidePopup(popup[0]);
 		camera.shoot(CLICK_MS);
 		afterAction();
