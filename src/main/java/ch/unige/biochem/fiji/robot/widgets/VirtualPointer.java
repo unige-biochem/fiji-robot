@@ -91,6 +91,7 @@ public final class VirtualPointer {
 	}
 
 	private Component keyTarget; // where the keys go: the target, or the component set
+	private boolean keyBindings; // the key events also run the key bindings of the key target and its parents
 
 	/**
 	 * Sends the key events to this component instead of the target: the target of a film of a whole window is its
@@ -98,6 +99,16 @@ public final class VirtualPointer {
 	 */
 	public VirtualPointer setKeyTarget(Component keyTarget) {
 		this.keyTarget = keyTarget;
+		return this;
+	}
+
+	/**
+	 * Runs the key bindings too ({@code true}), after the key listeners of the key target: the actions its input
+	 * maps and those of its parents bind to the keys, as Swing runs them for a real key (a frame's own actions, as
+	 * BigWarp's). Off by default: the key listeners only.
+	 */
+	public VirtualPointer setKeyBindings(boolean keyBindings) {
+		this.keyBindings = keyBindings;
 		return this;
 	}
 
@@ -751,6 +762,7 @@ public final class VirtualPointer {
 				if (id == KeyEvent.KEY_PRESSED) l.keyPressed(e);
 				else l.keyReleased(e);
 			}
+			if (keyBindings) SwingUtilities.processKeyBindings(e);
 		});
 	}
 
